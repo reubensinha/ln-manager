@@ -1,0 +1,12 @@
+{
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.workspaceRoot": "./frontend",
+  "eslint.workingDirectories": ["frontend"],
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "frontend-backup/**": true
+  }
+}
