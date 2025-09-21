@@ -7,4 +7,7 @@ export enum LayoutTypes {
   // MODERN
   CollapsibleAppShell,
   Plain,
+
+  // CUSTOM
+  NavbarNested
 }

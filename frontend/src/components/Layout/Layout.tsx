@@ -13,6 +13,8 @@ const layouts: any = {
   // NEW
   [LayoutTypes.CollapsibleAppShell]: lazy(() => import('./LayoutTypes/CollapsibleAppShell')),
   [LayoutTypes.Plain]: lazy(() => import('./LayoutTypes/PlainLayout')),
+  // CUSTOM
+  [LayoutTypes.NavbarNested]: lazy(() => import('./LayoutTypes/NavbarNested')),
 };
 
 export function Layout() {
