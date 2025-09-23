@@ -8,6 +8,7 @@ import {
   ThemeIcon,
   UnstyledButton,
 } from "@mantine/core";
+import { Link } from "react-router";
 import classes from "./NavbarLinksGroup.module.css";
 
 interface LinksGroupProps {
@@ -28,16 +29,16 @@ export function LinksGroup({
   const hasLinks = Array.isArray(links);
   const hasTopLevelLink = typeof link === "string";
   const [opened, setOpened] = useState(initiallyOpened || false);
-  const items = (hasLinks ? links : []).map((link) => (
-    <Text<"a">
-      component="a"
+  const items = (hasLinks ? links : []).map((item) => (
+    <Text<typeof Link>
+      component={Link}
       className={classes.link}
-      href={link.link}
-      key={link.label}
+      to={item.link}
+      key={item.label}
       // onClick={(event) => event.preventDefault()}
       onClick={(event) => event.stopPropagation()}
     >
-      {link.label}
+      {item.label}
     </Text>
   ));
 
@@ -72,7 +73,7 @@ export function LinksGroup({
 
   if (!hasLinks && hasTopLevelLink) {
     return (
-      <Text<"a"> component="a" href={link} className={classes.control}>
+      <Text<typeof Link> component={Link} to={link} className={classes.control}>
         <Group justify="space-between" gap={0}>
           <Box style={{ display: "flex", alignItems: "center" }}>
             <ThemeIcon variant="light" size={30}>
