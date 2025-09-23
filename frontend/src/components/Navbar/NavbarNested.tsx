@@ -1,67 +1,81 @@
 import {
-  TbAdjustments,
   TbCalendarStats,
-  TbFileAnalytics,
   TbGauge,
-  TbLock,
   TbNotes,
   TbPresentationAnalytics,
 } from "react-icons/tb";
-import { Code, Group, ScrollArea } from "@mantine/core";
+import { ScrollArea } from "@mantine/core";
 import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
-import { Logo } from "./Logo";
 import classes from "./NavbarNested.module.css";
+import { useLocation } from "react-router";
 
 const linkGroup = [
-  { label: "Dashboard", icon: TbGauge },
+  { label: "Library", icon: TbGauge, link: "/" },
+  { label: "Calendar", icon: TbCalendarStats, link: "/calendar" },
   {
-    label: "Market news",
+    label: "Activity",
     icon: TbNotes,
-    initiallyOpened: true,
     links: [
-      { label: "Overview", link: "/" },
-      { label: "Forecasts", link: "/" },
-      { label: "Outlook", link: "/" },
-      { label: "Real time", link: "/" },
+      { label: "Queue", link: "activity/queue" },
+      { label: "History", link: "activity/history" },
+      { label: "Blocklist", link: "activity/blocklist" },
     ],
   },
   {
-    label: "Releases",
-    icon: TbCalendarStats,
+    label: "Settings",
+    icon: TbGauge,
     links: [
-      { label: "Upcoming releases", link: "/" },
-      { label: "Previous releases", link: "/" },
-      { label: "Releases schedule", link: "/" },
+      { label: "Media Management", link: "/settings/mediamanagement" },
+      { label: "Profiles", link: "/settings/profiles" },
+      { label: "Custom Formats", link: "/settings/customformats" },
+      { label: "Indexers", link: "/settings/indexers" },
+      { label: "Download Clients", link: "/settings/downloadclients" },
+      { label: "Metadata Sources", link: "/settings/metadatasources" },
+      { label: "General", link: "/settings/general" },
+      { label: "Plugins", link: "/settings/plugins" },
     ],
   },
-  { label: "Analytics", icon: TbPresentationAnalytics },
-  { label: "Contracts", icon: TbFileAnalytics },
-  { label: "Settings", icon: TbAdjustments },
   {
-    label: "Security",
-    icon: TbLock,
+    label: "System",
+    icon: TbPresentationAnalytics,
     links: [
-      { label: "Enable 2FA", link: "/" },
-      { label: "Change password", link: "/" },
-      { label: "Recovery codes", link: "/" },
+      { label: "Status", link: "/system/status" },
+      { label: "Tasks", link: "/system/tasks" },
+      { label: "Events", link: "/system/events" },
+      { label: "Logs", link: "/system/logs" },
     ],
   },
 ];
 
 export function NavbarNested() {
+  const location = useLocation();
+  const normalize = (p: string) => (p.startsWith("/") ? p : `/${p}`);
+
   const links = linkGroup.map((item) => (
-    <LinksGroup {...item} key={item.label} />
+    <LinksGroup
+      {...item}
+      key={item.label}
+      initiallyOpened={
+        Array.isArray(item.links)
+          ? item.links.some(
+              (s) =>
+                location.pathname === normalize(s.link) ||
+                location.pathname.startsWith(normalize(s.link))
+            )
+          : false
+      }
+    />
   ));
 
   return (
     <nav className={classes.navbar}>
-      <div className={classes.header}>
+      {/* <div className={classes.header}>
         <Group justify="space-between">
           <Logo style={{ width: 120 }} />
           <Code fw={700}>v3.1.2</Code>
         </Group>
-      </div>
+      </div> */}
 
       <ScrollArea className={classes.links}>
         <div className={classes.linksInner}>{links}</div>

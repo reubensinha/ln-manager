@@ -1,69 +1,105 @@
-import { useState } from 'react';
-import { TbChevronRight } from 'react-icons/tb';
-import { Box, Collapse, Group, Text, ThemeIcon, UnstyledButton } from '@mantine/core';
-import classes from './NavbarLinksGroup.module.css';
+import { useState } from "react";
+import { TbChevronRight } from "react-icons/tb";
+import {
+  Box,
+  Collapse,
+  Group,
+  Text,
+  ThemeIcon,
+  UnstyledButton,
+} from "@mantine/core";
+import classes from "./NavbarLinksGroup.module.css";
 
 interface LinksGroupProps {
   icon: React.ElementType;
   label: string;
+  link?: string;
   initiallyOpened?: boolean;
   links?: { label: string; link: string }[];
 }
 
-export function LinksGroup({ icon: Icon, label, initiallyOpened, links }: LinksGroupProps) {
+export function LinksGroup({
+  icon: Icon,
+  label,
+  link,
+  initiallyOpened,
+  links,
+}: LinksGroupProps) {
   const hasLinks = Array.isArray(links);
+  const hasTopLevelLink = typeof link === "string";
   const [opened, setOpened] = useState(initiallyOpened || false);
   const items = (hasLinks ? links : []).map((link) => (
-    <Text<'a'>
+    <Text<"a">
       component="a"
       className={classes.link}
       href={link.link}
       key={link.label}
-      onClick={(event) => event.preventDefault()}
+      // onClick={(event) => event.preventDefault()}
+      onClick={(event) => event.stopPropagation()}
     >
       {link.label}
     </Text>
   ));
 
-  return (
-    <>
-      <UnstyledButton onClick={() => setOpened((o) => !o)} className={classes.control}>
+  if (hasLinks) {
+    return (
+      <>
+        <UnstyledButton
+          onClick={() => setOpened((o) => !o)}
+          className={classes.control}
+        >
+          <Group justify="space-between" gap={0}>
+            <Box style={{ display: "flex", alignItems: "center" }}>
+              <ThemeIcon variant="light" size={30}>
+                <Icon size={18} />
+              </ThemeIcon>
+              <Box ml="md">{label}</Box>
+            </Box>
+            {hasLinks && (
+              <TbChevronRight
+                className={classes.chevron}
+                stroke={"1.5"}
+                size={16}
+                style={{ transform: opened ? "rotate(-90deg)" : "none" }}
+              />
+            )}
+          </Group>
+        </UnstyledButton>
+        <Collapse in={opened}>{items}</Collapse>
+      </>
+    );
+  }
+
+  if (!hasLinks && hasTopLevelLink) {
+    return (
+      <Text<"a"> component="a" href={link} className={classes.control}>
         <Group justify="space-between" gap={0}>
-          <Box style={{ display: 'flex', alignItems: 'center' }}>
+          <Box style={{ display: "flex", alignItems: "center" }}>
             <ThemeIcon variant="light" size={30}>
               <Icon size={18} />
             </ThemeIcon>
             <Box ml="md">{label}</Box>
           </Box>
-          {hasLinks && (
-            <TbChevronRight
-              className={classes.chevron}
-              stroke={"1.5"}
-              size={16}
-              style={{ transform: opened ? 'rotate(-90deg)' : 'none' }}
-            />
-          )}
+        </Group>
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      <UnstyledButton
+        onClick={() => setOpened((o) => !o)}
+        className={classes.control}
+      >
+        <Group justify="space-between" gap={0}>
+          <Box style={{ display: "flex", alignItems: "center" }}>
+            <ThemeIcon variant="light" size={30}>
+              <Icon size={18} />
+            </ThemeIcon>
+            <Box ml="md">{label}</Box>
+          </Box>
         </Group>
       </UnstyledButton>
-      {hasLinks ? <Collapse in={opened}>{items}</Collapse> : null}
     </>
   );
 }
-
-// const mockdata = {
-//   label: 'Releases',
-//   icon: TbCalendarStats,
-//   links: [
-//     { label: 'Upcoming releases', link: '/' },
-//     { label: 'Previous releases', link: '/' },
-//     { label: 'Releases schedule', link: '/' },
-//   ],
-// };
-
-// export function NavbarLinksGroup() {
-//   return (
-//     <Box mih={220} p="md">
-//       <LinksGroup {...mockdata} />
-//     </Box>
-//   );
-// }
