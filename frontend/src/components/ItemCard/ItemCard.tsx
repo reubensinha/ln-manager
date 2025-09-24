@@ -5,12 +5,14 @@ import { type CardItem } from "../../types/CardItems";
 
 const stripColor = "red";
 
+// TODO: If Series, link to /series/:id if Book, link to /book/:id, else link to nothing.
+
 function ItemCard({ item }: { item: CardItem }) {
   return (
     <AspectRatio ratio={1 / 2} style={{ width: 400 }} mx="auto">
       <Card
         component={Link}
-        to={`/series/${item.id}`}
+        to={item.link ?? "#"}
         withBorder
         radius="sm"
         style={{ overflow: "visible" }}

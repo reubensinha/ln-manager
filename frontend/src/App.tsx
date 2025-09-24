@@ -9,6 +9,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import Layout from "./components/Layout/Layout.tsx";
 
 import Library from "./pages/Library.tsx";
+import Series from "./pages/Series.tsx";
 // import Vite from "./Vite.tsx";
 
 function App() {
@@ -19,7 +20,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Library />} />
-              <Route path="/series/:id" element={<div>Series Detail Page - To Be Implemented</div>} />
+              <Route path="/series/:id" element={<Series />} />
               <Route path="/book/:id" element={<div>Book Detail Page - To Be Implemented</div>} />
               <Route path="*" element={<div>404 Not Found</div>} />
             </Routes>
