@@ -1,38 +1,30 @@
-import {
-  AspectRatio,
-  Card,
-  Image,
-  Text,
-} from "@mantine/core";
+import { Link } from "react-router";
+import { AspectRatio, Card, Image, Text } from "@mantine/core";
 import classes from "./ItemCard.module.css";
+import { type CardItem } from "../../types/CardItems";
 
-type SeriesItem = {
-  id: number;
-  title: string;
-  description: string;
-  img_path: string;
-};
-
-// const title = "Secrets of The Silent Witch";
-// const imgPath = "../../../test_img/32510.jpg";
 const stripColor = "red";
 
-function ItemCard({ series }: { series: SeriesItem }) {
+function ItemCard({ item }: { item: CardItem }) {
   return (
     <AspectRatio ratio={1 / 2} style={{ width: 400 }} mx="auto">
-      <Card withBorder radius="sm" style={{ overflow: "visible" }}>
+      <Card
+        component={Link}
+        to={`/series/${item.id}`}
+        withBorder
+        radius="sm"
+        style={{ overflow: "visible" }}
+      >
         <Card.Section>
-          {/* <AspectRatio ratio={2 / 3} style={{ width: "100%" }} mx="auto"> */}
-            <Image src={series.img_path} alt={series.title} fit="contain" />
-          {/* </AspectRatio> */}
+          <Image src={item.img_url} alt={item.title} fit="contain" />
         </Card.Section>
 
-        {/* TODO: Add Color Strip Section*/}
+        {/* TODO: Add dynamic Color Strip Section once backend api is ready */}
         <Card.Section style={{ backgroundColor: stripColor, height: 5 }} />
 
         <Card.Section className={classes.footer}>
           <Text fw={500} size="sm">
-            {series.title}
+            {item.title}
           </Text>
         </Card.Section>
       </Card>

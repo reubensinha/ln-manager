@@ -1,16 +1,9 @@
-import { SimpleGrid } from "@mantine/core";
-import ItemCard from "../components/ItemCard/ItemCard";
-
-import { getSeries } from "../components/api/series";
 import { useEffect, useState } from "react";
+import { SimpleGrid } from "@mantine/core";
 
-
-type SeriesItem = {
-  id: number;
-  title: string;
-  description: string;
-  img_path: string;
-};
+import { getSeries } from "../api/api";
+import ItemCard from "../components/ItemCard/ItemCard";
+import { type SeriesItem } from "../types/CardItems";
 
 
 function Library() {
@@ -18,17 +11,9 @@ function Library() {
   const [series, setSeries] = useState<SeriesItem[]>([]);
 
   useEffect(() => {
-    let isMounted = true;
-
     getSeries().then((data) => {
-      if (isMounted) {
-        setSeries(data);
-      }
+      setSeries(data);
     });
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   return (
@@ -38,7 +23,7 @@ function Library() {
         // spacing={{ base: 10, '300px': 'xl' }}
       >
         {series.map((seriesItem) => (
-          <ItemCard series={seriesItem} />
+          <ItemCard item={seriesItem} />
         ))}
       </SimpleGrid>
   )

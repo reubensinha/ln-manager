@@ -19,6 +19,9 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Library />} />
+              <Route path="/series/:id" element={<div>Series Detail Page - To Be Implemented</div>} />
+              <Route path="/book/:id" element={<div>Book Detail Page - To Be Implemented</div>} />
+              <Route path="*" element={<div>404 Not Found</div>} />
             </Routes>
           </Layout>
         </BrowserRouter>
