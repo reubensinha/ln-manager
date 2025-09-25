@@ -20,7 +20,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Library />} />
-              <Route path="/series/:id" element={<Series />} />
+              <Route path="/series/:groupID" element={<Series />} />
               <Route path="/book/:id" element={<div>Book Detail Page - To Be Implemented</div>} />
               <Route path="*" element={<div>404 Not Found</div>} />
             </Routes>

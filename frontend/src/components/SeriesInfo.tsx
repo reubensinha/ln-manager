@@ -1,7 +1,7 @@
 import { Group, Text, Title, Image, Stack, Badge } from "@mantine/core";
 import type { SeriesItem } from "../types/CardItems";
 
-function SeriesHeader({ series }: { series: SeriesItem }) {
+function SeriesInfo({ series }: { series: SeriesItem }) {
   return (
     <Group align="flex-start">
       <Image
@@ -34,4 +34,4 @@ function SeriesHeader({ series }: { series: SeriesItem }) {
   );
 }
 
-export default SeriesHeader;
+export default SeriesInfo;

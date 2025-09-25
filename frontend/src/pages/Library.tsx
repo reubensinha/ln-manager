@@ -1,22 +1,22 @@
 import { useEffect, useState } from "react";
 import { SimpleGrid } from "@mantine/core";
 
-import { getSeries } from "../api/api";
+import { getSeriesGroups } from "../api/api";
 import ItemCard from "../components/ItemCard/ItemCard";
-import { type SeriesItem } from "../types/CardItems";
+import { type SeriesGroupItem } from "../types/CardItems";
 
 // TODO: Set link in SeriesItem to /series/:id
 
 function Library() {
-  const [series, setSeries] = useState<SeriesItem[]>([]);
+  const [series, setSeries] = useState<SeriesGroupItem[]>([]);
 
   useEffect(() => {
-    getSeries().then((data) => {
-      const seriesWithLinks = data.map((item) => ({
+    getSeriesGroups().then((data) => {
+      const seriesGroupsWithLinks = data.map((item) => ({
         ...item,
         link: `/series/${item.id}`,
       }));
-      setSeries(seriesWithLinks);
+      setSeries(seriesGroupsWithLinks);
     });
   }, []);
 

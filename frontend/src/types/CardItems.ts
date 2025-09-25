@@ -7,10 +7,14 @@ export type CardItem = {
   link?: string;
 };
 
+export interface SeriesGroupItem extends CardItem {
+  series: { id: string; source: string }[];
+}
+
 export interface SeriesItem extends CardItem {
   description: string;
-};
+}
 
 export interface BookItem extends CardItem {
   description: string;
-};
+}
