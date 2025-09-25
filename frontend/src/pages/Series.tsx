@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, SimpleGrid, Divider } from "@mantine/core";
+import { Text, SimpleGrid, Divider, Tabs } from "@mantine/core";
 import { useParams } from "react-router";
 
 import { getSeriesById, getSeriesGroupById } from "../api/api";
@@ -38,6 +38,17 @@ function Series() {
     }
   }, [seriesGroup]);
 
+  const handleTabChange = (seriesId: string) => {
+    getSeriesById(seriesId).then((data) => {
+      const booksWithLinks = data.books.map((item) => ({
+        ...item,
+        link: `/book/${item.id}`,
+      }));
+      setSeries(data);
+      setBooks(booksWithLinks);
+    });
+  };
+
   if (!seriesGroup) {
     return <Text>Loading series group...</Text>;
   }
@@ -48,18 +59,32 @@ function Series() {
 
   return (
     <>
-      {/* TODO Series Tabs */}
-      <SeriesInfo series={series} />
-      <Divider my="md" />
-      <SimpleGrid
-        type="container"
-        cols={{ base: 2, "500px": 5, "1000px": 10 }}
-        // spacing={{ base: 10, '300px': 'xl' }}
+      <Tabs
+        defaultValue={seriesGroup.series[0].id}
+        onChange={(value) => handleTabChange(value ?? "")}
       >
-        {books.map((bookItem) => (
-          <ItemCard item={bookItem} />
-        ))}
-      </SimpleGrid>
+        <Tabs.List mb={"md"}>
+          {seriesGroup.series.map((seriesItem) => (
+            <Tabs.Tab key={seriesItem.id} value={seriesItem.id}>
+              {seriesItem.source}
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+
+        <Tabs.Panel value={series.id}>
+          <SeriesInfo series={series} />
+          <Divider my="md" />
+          <SimpleGrid
+            type="container"
+            cols={{ base: 2, "500px": 5, "1000px": 10 }}
+            // spacing={{ base: 10, '300px': 'xl' }}
+          >
+            {books.map((bookItem) => (
+              <ItemCard key={bookItem.id} item={bookItem} />
+            ))}
+          </SimpleGrid>
+        </Tabs.Panel>
+      </Tabs>
     </>
   );
 }

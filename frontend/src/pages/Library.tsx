@@ -27,7 +27,7 @@ function Library() {
       // spacing={{ base: 10, '300px': 'xl' }}
     >
       {series.map((seriesItem) => (
-        <ItemCard item={seriesItem} />
+        <ItemCard key={seriesItem.id} item={seriesItem} />
       ))}
     </SimpleGrid>
   );
