@@ -127,3 +127,14 @@ export async function getSeriesById(id: string) {
     ],
   };
 }
+
+
+export async function getBookByID(id: string) {
+  // Placeholder function to simulate fetching a single book by ID from an API
+  return {
+    id,
+    title: `Book ${id}`,
+    description: `Description of Book ${id}`,
+    img_url: "/test_img/32510.jpg",
+  };
+}
