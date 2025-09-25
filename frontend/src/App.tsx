@@ -8,6 +8,8 @@ import { BrowserRouter, Route, Routes } from "react-router";
 
 import Layout from "./components/Layout/Layout.tsx";
 
+import NothingFoundBackground from "./notfound/notfound.tsx";
+
 import Library from "./pages/Library.tsx";
 import Series from "./pages/Series.tsx";
 import Book from "./pages/Book.tsx";
@@ -23,7 +25,7 @@ function App() {
               <Route path="/" element={<Library />} />
               <Route path="/series/:groupID" element={<Series />} />
               <Route path="/book/:bookID" element={<Book />} />
-              <Route path="*" element={<div>404 Not Found</div>} />
+              <Route path="*" element={<NothingFoundBackground />} />
             </Routes>
           </Layout>
         </BrowserRouter>
