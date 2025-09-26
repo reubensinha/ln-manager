@@ -8,9 +8,12 @@ import { ScrollArea } from "@mantine/core";
 import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
 import classes from "./NavbarNested.module.css";
+import { pluginManifests } from "../../plugin-manifests";
 import { useLocation } from "react-router";
 
-const linkGroup = [
+import { type NavLink } from "../../types/NavLink";
+
+const coreLinkGroup: NavLink[] = [
   { label: "Library", icon: TbGauge, link: "/" },
   { label: "Calendar", icon: TbCalendarStats, link: "/calendar" },
   {
@@ -48,11 +51,17 @@ const linkGroup = [
   },
 ];
 
+
+
+
 export function NavbarNested() {
   const location = useLocation();
   const normalize = (p: string) => (p.startsWith("/") ? p : `/${p}`);
 
-  const links = linkGroup.map((item) => (
+  const pluginLinks = pluginManifests.flatMap((plugin) => plugin.navLinks || []);
+  const combinedLinks = [...coreLinkGroup, ...pluginLinks];
+
+  const links = combinedLinks.map((item) => (
     <LinksGroup
       {...item}
       key={item.label}

@@ -10,14 +10,15 @@ import {
 } from "@mantine/core";
 import { Link } from "react-router";
 import classes from "./NavbarLinksGroup.module.css";
+import { type NavLink } from "../../types/NavLink";
 
-interface LinksGroupProps {
-  icon: React.ElementType;
-  label: string;
-  link?: string;
-  initiallyOpened?: boolean;
-  links?: { label: string; link: string }[];
-}
+// interface NavLink {
+//   icon: React.ElementType;
+//   label: string;
+//   link?: string;
+//   initiallyOpened?: boolean;
+//   links?: { label: string; link: string }[];
+// }
 
 export function LinksGroup({
   icon: Icon,
@@ -25,7 +26,7 @@ export function LinksGroup({
   link,
   initiallyOpened,
   links,
-}: LinksGroupProps) {
+}: NavLink) {
   const hasLinks = Array.isArray(links);
   const hasTopLevelLink = typeof link === "string";
   const [opened, setOpened] = useState(initiallyOpened || false);
