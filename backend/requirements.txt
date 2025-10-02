@@ -1,0 +1,9 @@
+asyncio
+fastapi
+httpx
+pydantic
+sqlalchemy
+uvicorn
+sqlmodel
+alembic
+pyyaml
