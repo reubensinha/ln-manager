@@ -24,36 +24,40 @@ async def search_series(query: str, source: str):
     return results
 
 
+
+class AddSeriesRequest(SQLModel):
+    external_id: str
+    source: str
+    series_group: str | None = None  # optional name of the series group
+
 # TODO: Check if this is the correct HTTP method to use.
-@router.get("/add/series/{external_id}", response_model=SeriesPublic)
+@router.post("/add/series/{external_id}", response_model=SeriesPublic)
 async def fetch_series(
-    external_id: str,
-    source: str,
-    series_group: str = "",
+    request: AddSeriesRequest,
     session: Session = Depends(get_session),
 ):
     #  TODO: Add series to database.
 
     # ----- Lookup Plugin -----
-    plugin = plugin_manager.get_plugin(source)
+    plugin = plugin_manager.get_plugin(request.source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
         raise HTTPException(status_code=404, detail="Metadata source not found")
 
     # ----- Fetch From Plugin-----
-    data: SeriesFetchModel = await plugin.fetch_series(external_id)
+    data: SeriesFetchModel = await plugin.fetch_series(request.external_id)
     if not data or not data.series:
         raise HTTPException(
             status_code=404,
-            detail=f"{source} Could not find series with id {external_id}",
+            detail=f"{request.source} Could not find series with id {request.external_id}",
         )
 
     try:
         # ----- Handle Series Group -----
-        if series_group:
-            group = session.get(SeriesGroup, uuid.UUID(series_group))
+        if request.series_group:
+            group = session.get(SeriesGroup, uuid.UUID(request.series_group))
             if not group:
                 raise HTTPException(
-                    status_code=404, detail=f"Series group {series_group} not found"
+                    status_code=404, detail=f"Series group {request.series_group} not found"
                 )
 
         else:
@@ -63,12 +67,12 @@ async def fetch_series(
 
         # ----- Lookup Plugin in Database -----
         db_plugin = session.exec(
-            select(MetadataPluginTable).where(MetadataPluginTable.name == source)
+            select(MetadataPluginTable).where(MetadataPluginTable.name == request.source)
         ).first()
         if not db_plugin:
             raise HTTPException(
                 status_code=404,
-                detail=f"Metadata source {source} not found in database",
+                detail=f"Metadata source {request.source} not found in database",
             )
 
         # ----- Add Series -----
