@@ -47,83 +47,89 @@ async def fetch_series(
             detail=f"{source} Could not find series with id {external_id}",
         )
 
+    try:
     # ----- Handle Series Group -----
-    if series_group:
-        group = session.get(SeriesGroup, uuid.UUID(series_group))
-        if not group:
+        if series_group:
+            group = session.get(SeriesGroup, uuid.UUID(series_group))
+            if not group:
+                raise HTTPException(
+                    status_code=404, detail=f"Series group {series_group} not found"
+                )
+
+        else:
+            group = SeriesGroup(title=data.series.title)
+            session.add(group)
+            session.flush()  # To get the ID of the new group
+
+        # ----- Lookup Plugin in Database -----
+        db_plugin = session.exec(
+            select(MetadataPluginTable).where(MetadataPluginTable.name == source)
+        ).first()
+        if not db_plugin:
             raise HTTPException(
-                status_code=404, detail=f"Series group {series_group} not found"
+                status_code=404, detail=f"Metadata source {source} not found in database"
             )
 
-    else:
-        group = SeriesGroup(title=data.series.title)
-        session.add(group)
-        session.flush()  # To get the ID of the new group
-
-    # ----- Lookup Plugin in Database -----
-    db_plugin = session.exec(
-        select(MetadataPluginTable).where(MetadataPluginTable.name == source)
-    ).first()
-    if not db_plugin:
-        raise HTTPException(
-            status_code=404, detail=f"Metadata source {source} not found in database"
+        # ----- Add Series -----
+        series_obj = Series(
+            title=data.series.title,
+            author=data.series.author,
+            description=data.series.description,
+            source_id=db_plugin.id,
+            group_id=group.id,
         )
-
-    # ----- Add Series -----
-    series_obj = Series(
-        title=data.series.title,
-        author=data.series.author,
-        description=data.series.description,
-        source_id=db_plugin.id,
-        group_id=group.id,
-    )
-    session.add(series_obj)
-    session.flush()
-
-    # ----- Add Books -----
-    for book in data.books:
-        book_obj = Book(
-            title=book.title,
-            author=book.author,
-            description=book.description,
-            volume=book.volume,
-            series_id=series_obj.id,
-        )
-        session.add(book_obj)
+        session.add(series_obj)
         session.flush()
 
-        for release in book.releases:
-            release_obj = Release(
-                url=release.url,
-                format=release.format,
-                release_date=release.release_date,
-                book_id=book_obj.id,
+        # ----- Add Books -----
+        for book in data.books:
+            book_obj = Book(
+                title=book.title,
+                author=book.author,
+                description=book.description,
+                volume=book.volume,
+                series_id=series_obj.id,
             )
-            session.add(release_obj)
+            session.add(book_obj)
+            session.flush()
 
-    # ----- Add Chapters -----
-    for chapter in data.chapters:
-        chapter_obj = Chapter(
-            title=chapter.title,
-            author=chapter.author,
-            number=chapter.number,
-            volume=chapter.volume,
-            description=chapter.description,
-            series_id=series_obj.id,
-        )
-        session.add(chapter_obj)
-        session.flush()
+            for release in book.releases:
+                release_obj = Release(
+                    url=release.url,
+                    format=release.format,
+                    release_date=release.release_date,
+                    book_id=book_obj.id,
+                )
+                session.add(release_obj)
 
-        for release in chapter.releases:
-            release_obj = Release(
-                url=release.url,
-                format=release.format,
-                release_date=release.release_date,
-                chapter_id=chapter_obj.id,
+        # ----- Add Chapters -----
+        for chapter in data.chapters:
+            chapter_obj = Chapter(
+                title=chapter.title,
+                author=chapter.author,
+                number=chapter.number,
+                volume=chapter.volume,
+                description=chapter.description,
+                series_id=series_obj.id,
             )
-            session.add(release_obj)
+            session.add(chapter_obj)
+            session.flush()
 
-    session.commit()
-    session.refresh(series_obj)
+            for release in chapter.releases:
+                release_obj = Release(
+                    url=release.url,
+                    format=release.format,
+                    release_date=release.release_date,
+                    chapter_id=chapter_obj.id,
+                )
+                session.add(release_obj)
 
-    return series_obj
+        session.commit()
+        session.refresh(series_obj)
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
+
+
+    series_public = SeriesPublic.model_validate(series_obj)
+    return series_public
