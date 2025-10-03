@@ -48,7 +48,7 @@ async def fetch_series(
         )
 
     try:
-    # ----- Handle Series Group -----
+        # ----- Handle Series Group -----
         if series_group:
             group = session.get(SeriesGroup, uuid.UUID(series_group))
             if not group:
@@ -67,7 +67,8 @@ async def fetch_series(
         ).first()
         if not db_plugin:
             raise HTTPException(
-                status_code=404, detail=f"Metadata source {source} not found in database"
+                status_code=404,
+                detail=f"Metadata source {source} not found in database",
             )
 
         # ----- Add Series -----
@@ -129,7 +130,6 @@ async def fetch_series(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
-
 
     series_public = SeriesPublic.model_validate(series_obj)
     return series_public
