@@ -6,19 +6,24 @@ from pydantic import BaseModel
 from sqlmodel import Session
 from .base import BasePlugin
 
-from backend.core.database.models import Series, Book, Chapter, Release
+from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase
+
+class BookFetchModel(BookBase):
+    releases: list[ReleaseBase] = []
+
+class ChapterFetchModel(ChapterBase):
+    releases: list[ReleaseBase] = []
 
 class SeriesFetchModel(BaseModel):
-    series: Series
-    books: list[Book]
-    chapters: list[Chapter]
-    releases: list[Release]
+    series: SeriesBase
+    books: list[BookFetchModel] = []
+    chapters: list[ChapterFetchModel] = []
 
 class MetadataPlugin(BasePlugin):
     """Plugins that provide metadata (series search, details)."""
 
     @abstractmethod
-    async def search_series(self, query: str) -> list[Series]:
+    async def search_series(self, query: str) -> list[SeriesBase]:
         """
         Search for a series by name/keywords.
 

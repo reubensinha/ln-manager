@@ -123,11 +123,12 @@ class SeriesPublic(SeriesBase):
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
 
-
+# TODO: Make volume field decimal
 class BookBase(SQLModel):
     title: str = Field(index=True)
     author: str | None = Field(default=None, index=True)
     description: str | None = None
+    volume: int | None = Field(default=None, index=True)
 
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
@@ -145,7 +146,7 @@ class BookPublic(BookBase):
     
     releases: list["ReleasePublic"] = []
 
-
+# TODO: Make number and volume field decimal
 class ChapterBase(SQLModel):
     title: str = Field(index=True)
     author: str | None = Field(default=None, index=True)
@@ -172,27 +173,22 @@ class ChapterPublic(ChapterBase):
 ## Releases are expected to be linked to either a chapter or book but not both.
 class ReleaseBase(SQLModel):
     url: str = Field(index=True)
-    quality: str | None = None
     format: str | None = None
-    size: int | None = None  # Size in bytes
-    downloaded: bool = Field(default=False, index=True)
+    release_date: str | None = None  # ISO 8601 date string # TODO: Check if date type is more appropriate
 
-    chapter_id: uuid.UUID | None = Field(foreign_key="chapter.id", ondelete="CASCADE")
-    book_id: uuid.UUID | None = Field(foreign_key="book.id", ondelete="SET NULL")
-    series_id: uuid.UUID | None = Field(foreign_key="series.id", ondelete="SET NULL")
+    chapter_id: uuid.UUID | None = Field(default=None, foreign_key="chapter.id", ondelete="CASCADE")
+    book_id: uuid.UUID | None = Field(default=None, foreign_key="book.id", ondelete="SET NULL")
 
 class Release(ReleaseBase, table=True):
     """A release (downloadable file) for a chapter."""
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    chapter: Chapter | None = Relationship()
-    book: Book | None = Relationship()
-    series: Series | None = Relationship()  # Redundant, but useful for queries 
-    
-    
+    chapter: Chapter | None = Relationship(back_populates="releases")
+    book: Book | None = Relationship(back_populates="releases")
+
+
 class ReleasePublic(ReleaseBase):
     """A release (downloadable file) for a chapter."""
     id: uuid.UUID
     chapter: ChapterPublic | None = None
     book: BookPublic | None = None
-    series: SeriesPublic | None = None  # Redundant, but useful for queries
