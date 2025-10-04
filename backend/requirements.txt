@@ -7,3 +7,6 @@ uvicorn
 sqlmodel
 alembic
 pyyaml
+pyrate-limiter
+nest-asyncio
+filelock

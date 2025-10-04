@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations # Enable forward references easily
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
 
@@ -12,12 +12,27 @@ import uuid
 # TODO: Track plugin dependencies and versions
 
 class Dependency(SQLModel, table=True):
-    """Represents a dependency required by a plugin."""
+    """
+    Represents a dependency required by a plugin (e.g., a required Python package).
+
+    Fields:
+        name (str): The name of the dependency (Primary Key).
+        version (str | None): The required version or version range.
+    """
     name: str = Field(primary_key=True)
     version: str | None = None
 
 class PluginBase(SQLModel):
-    """Base class for plugins to allow for future extensions."""
+    """
+    Base class containing common descriptive fields for all plugin types.
+
+    Fields:
+        name (str): The display name of the plugin.
+        version (str): The version string of the plugin.
+        description (str | None): A brief explanation of what the plugin does.
+        author (str | None): The creator of the plugin.
+        enabled (bool): Whether the plugin is currently active and running.
+    """
     name: str
     version: str
     description: str | None = None
@@ -25,28 +40,42 @@ class PluginBase(SQLModel):
     enabled: bool = Field(default=True)
 
 class GenericPlugin(PluginBase, table=True):
-    """A generic plugin that doesn't fit into other categories."""
+    """
+    A concrete plugin model for plugins that don't fit into other, more specific categories.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
 
 class MetadataPluginTable(PluginBase, table=True):
-    """Plugin that provides metadata for searching series"""
+    """
+    Plugin that provides metadata for searching and fetching series details.
+
+    Relationships:
+        series (list["Series"]): All specific series entries sourced by this plugin.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
     series: list["Series"] = Relationship(back_populates="plugin")
 
 class MetadataPluginPublic(PluginBase):
-    """Public representation of the MetadataPlugin."""
+    """
+    Public API representation of the MetadataPlugin.
+    """
     id: uuid.UUID
     series: list["SeriesPublic"] = []
 
 class IndexerPlugin(PluginBase, table=True):
-    """Plugin that provides access to indexers for searching/downloading."""
+    """
+    Plugin that provides access to indexers for searching and locating downloadable files.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
 
 class DownloadClientPlugin(PluginBase, table=True):
-    """Plugin that provides access to downloaders for downloading content."""
+    """
+    Plugin that provides access to download clients (e.g., torrent clients, web downloaders) 
+    for initiating and managing content downloads.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
 
@@ -54,77 +83,142 @@ class DownloadClientPlugin(PluginBase, table=True):
 # Database Models
 ################################################################################
 # TODO: Add created_at, updated_at timestamps to all models
-# TODO: Modify models 
+# TODO: Modify models
+
 
 class CollectionSeriesGroupLink(SQLModel, table=True):
-    """Link table for many-to-many relationship between Collection and SeriesGroup."""
+    """
+    Link table for the many-to-many relationship between Collection and SeriesGroup.
+
+    Fields:
+        collection_id (uuid.UUID): Foreign key to the Collection.
+        seriesgroup_id (uuid.UUID): Foreign key to the SeriesGroup.
+    """
     collection_id: uuid.UUID = Field(foreign_key="collection.id", primary_key=True)
     seriesgroup_id: uuid.UUID = Field(foreign_key="seriesgroup.id", primary_key=True)
     
 
 class CollectionBase(SQLModel):
-    """Base class for Collection to allow for future extensions."""
+    """
+    Base class for a user-created list of series groups.
+    
+    Fields:
+        name (str): The user-defined name of the collection.
+    """
     name: str = Field(index=True)
 
 class Collection(CollectionBase, table=True):
-    """Represents a collection of series created by the user."""
+    """
+    Represents a collection of series groups created by the user.
+    
+    Relationships:
+        series_groups (list["SeriesGroup"]): The groups contained in this collection.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
     series_groups: list["SeriesGroup"] = Relationship(back_populates="collections", link_model=CollectionSeriesGroupLink)
 
 class CollectionPublic(CollectionBase):
-    """Represents a publicly viewable collection of series."""
+    """
+    Represents a publicly viewable collection of series groups.
+    """
     id: uuid.UUID
     series_groups: list["SeriesGroupPublic"] = []
     
 
 class SeriesGroupBase(SQLModel):
-    """Base class for SeriesGroup to allow for future extensions."""
+    """
+    Base class for the canonical identifier of an intellectual property.
+    This groups all variations of a series (from different plugins) into one concept.
+
+    Fields:
+        title (str): The main title for this group.
+        description (str | None): A shared description for the group.
+    """
     title: str = Field(index=True)
     description: str | None = None
 
 class SeriesGroup(SeriesGroupBase, table=True):
-    """A single object representing a single series from all metadata sources."""
+    """
+    A single object representing a single series from all metadata sources.
+    
+    Relationships:
+        collections (list[Collection]): The collections this group belongs to.
+        series (list["Series"]): All individual Series objects linked to this group.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
-    collections: list[Collection] = Relationship(back_populates="seriesgroups", link_model=CollectionSeriesGroupLink)
-    series: list["Series"] = Relationship(back_populates="seriesgroup")
+    collections: list[Collection] = Relationship(back_populates="series_groups", link_model=CollectionSeriesGroupLink)
+    series: list["Series"] = Relationship(back_populates="group")
 
 class SeriesGroupPublic(SeriesGroupBase):
-    """A single object representing a single series from all metadata sources."""
+    """
+    Public API representation of the canonical SeriesGroup.
+    """
     id: uuid.UUID
     collections: list[CollectionPublic] = []
     series: list["SeriesPublic"] = []
 
 
 class SeriesBase(SQLModel):
+    """
+    Base class for a single series entry, sourced from one specific plugin.
+    
+    Fields:
+        title (str): The title as provided by the external source.
+        author (str | None): The author as provided by the external source.
+        description (str | None): The description as provided by the external source.
+        source_id (uuid.UUID | None): Foreign key to the MetadataPluginTable that provided this series.
+        group_id (uuid.UUID | None): Foreign key to the SeriesGroup that this Series belongs to.
+    """
     title: str = Field(index=True)
     author: str | None = Field(default=None, index=True)
     description: str | None = None
 
-    source_id: uuid.UUID | None = Field(foreign_key="metadataplugin.id", ondelete="SET NULL")       # TODO: Decide what to do on delete
+    source_id: uuid.UUID | None = Field(foreign_key="metadataplugin.id", ondelete="SET NULL") # TODO: Decide what to do on delete
     group_id: uuid.UUID | None = Field(foreign_key="seriesgroup.id", ondelete="SET NULL")
 
 class Series(SeriesBase, table=True):
-    """A single series from a single metadata source."""
+    """
+    A single series from a single metadata source.
+
+    Relationships:
+        plugin (MetadataPluginTable): The plugin that sourced this series.
+        group (SeriesGroup): The canonical group this series belongs to.
+        books (list["Book"]): All books belonging to this specific series.
+        chapters (list["Chapter"]): All chapters belonging to this specific series.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
-    plugin: "MetadataPluginTable" = Relationship(back_populates="series")
+    plugin: MetadataPluginTable = Relationship(back_populates="series")
     group: SeriesGroup = Relationship(back_populates="series")
     
     books: list["Book"] = Relationship(back_populates="series", cascade_delete=True)
     chapters: list["Chapter"] = Relationship(back_populates="series", cascade_delete=True)
 
 class SeriesPublic(SeriesBase):
-    """A single series from a single metadata source."""
+    """
+    Public API representation of a single Series entry.
+    """
     id: uuid.UUID
     plugin: "MetadataPluginPublic"
     group: SeriesGroupPublic
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
 
+
 # TODO: Make volume field decimal
 class BookBase(SQLModel):
+    """
+    Base class for a major volume or collection within a Series.
+
+    Fields:
+        title (str): The title of the book.
+        author (str | None): The author of the book.
+        description (str | None): A description of the book.
+        volume (int | None): The volume number (e.g., 1, 2, 3).
+        series_id (uuid.UUID): Foreign key to the parent Series.
+    """
     title: str = Field(index=True)
     author: str | None = Field(default=None, index=True)
     description: str | None = None
@@ -133,21 +227,41 @@ class BookBase(SQLModel):
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
 class Book(BookBase, table=True):
-    """Book contained in a series."""
+    """
+    A specific book contained within a series.
+
+    Relationships:
+        series (Series): The parent series this book belongs to.
+        releases (list["Release"]): All file releases associated with this book.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
-    series: Series = Relationship(back_populates="book")
-    releases: list["Release"] = Relationship(back_populates="book", cascade_delete=True)    
+    series: Series = Relationship(back_populates="books")
+    releases: list["Release"] = Relationship(back_populates="book", cascade_delete=True) 
 
 class BookPublic(BookBase):
-    """Book contained in a series."""
+    """
+    Public API representation of a Book.
+    """
     id: uuid.UUID
     series: SeriesPublic
     
     releases: list["ReleasePublic"] = []
 
+
 # TODO: Make number and volume field decimal
 class ChapterBase(SQLModel):
+    """
+    Base class for a single chapter or segment of content within a Series.
+
+    Fields:
+        title (str): The title of the chapter.
+        author (str | None): The author of the chapter.
+        number (int | None): The chapter number.
+        volume (int | None): The volume number (if part of a larger volume structure).
+        description (str | None): A description of the chapter content.
+        series_id (uuid.UUID): Foreign key to the parent Series.
+    """
     title: str = Field(index=True)
     author: str | None = Field(default=None, index=True)
     number: int | None = Field(default=None, index=True)
@@ -157,30 +271,56 @@ class ChapterBase(SQLModel):
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
 class Chapter(ChapterBase, table=True):
-    """Chapter contained in a book."""
+    """
+    A specific chapter contained within a series.
+
+    Relationships:
+        series (Series): The parent series this chapter belongs to.
+        releases (list["Release"]): All file releases associated with this chapter.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     series: "Series" = Relationship(back_populates="chapters")
     releases: list["Release"] = Relationship(back_populates="chapter", cascade_delete=True)
 
 class ChapterPublic(ChapterBase):
-    """Chapter contained in a book."""
+    """
+    Public API representation of a Chapter.
+    """
     id: uuid.UUID
     series: SeriesPublic
     
     releases: list["ReleasePublic"] = []
 
-## Releases are expected to be linked to either a chapter or book but not both.
 class ReleaseBase(SQLModel):
+    """
+    Base class for a single release related to a book or chapter.
+    NOTE: A Release must be linked to EITHER a chapter_id OR a book_id, but not both.
+
+    Fields:
+        url (str): The source URL for the release file.
+        format (str | None): The format (e.g., 'EPUB', 'PDF', 'Web').
+        release_date (str | None): The date the release was made available (ISO 8601 string).
+        chapter_id (uuid.UUID | None): Foreign key to the parent Chapter.
+        book_id (uuid.UUID | None): Foreign key to the parent Book.
+    """
     url: str = Field(index=True)
     format: str | None = None
-    release_date: str | None = None  # ISO 8601 date string # TODO: Check if date type is more appropriate
+    release_date: str | None = (
+        None  # ISO 8601 date string # TODO: Check if date type is more appropriate
+    )
 
     chapter_id: uuid.UUID | None = Field(default=None, foreign_key="chapter.id", ondelete="CASCADE")
     book_id: uuid.UUID | None = Field(default=None, foreign_key="book.id", ondelete="SET NULL")
 
 class Release(ReleaseBase, table=True):
-    """A release (downloadable file) for a chapter."""
+    """
+    A specific release record stored in the database.
+
+    Relationships:
+        chapter (Chapter | None): The chapter this release is for.
+        book (Book | None): The book this release is for.
+    """
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     chapter: Chapter | None = Relationship(back_populates="releases")
@@ -188,7 +328,9 @@ class Release(ReleaseBase, table=True):
 
 
 class ReleasePublic(ReleaseBase):
-    """A release (downloadable file) for a chapter."""
+    """
+    Public API representation of a Release.
+    """
     id: uuid.UUID
     chapter: ChapterPublic | None = None
     book: BookPublic | None = None
