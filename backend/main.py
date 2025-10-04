@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     # Perform startup tasks
     init_db()
     
-    with Session() as session:
+    with get_session() as session:
         for folder in PLUGIN_DIR.iterdir():
             if not folder.is_dir():
                 continue
@@ -79,6 +79,10 @@ async def lifespan(app: FastAPI):
             if manifest_file.exists():
                 manifest = yaml.safe_load(manifest_file.open())
                 plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                # try:
+                #     plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                # except Exception as e:
+                #     print(f"Failed to load plugin {plugin.name}: {e}")
 
     yield
     # Perform shutdown tasks

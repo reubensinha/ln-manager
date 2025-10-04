@@ -1,13 +1,11 @@
 # backend/core/plugins/metadata.py
 from abc import abstractmethod
-from tkinter import N
-from typing import Any
 
 # from pydantic import BaseModel
 from sqlmodel import SQLModel
 from .base import BasePlugin
 
-from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase
+from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase, SeriesSearchResponse
 
 class BookFetchModel(BookBase):
     """
@@ -54,7 +52,7 @@ class MetadataPlugin(BasePlugin):
     """Plugins that provide metadata (series search, details)."""
 
     @abstractmethod
-    async def search_series(self, query: str) -> list[SeriesBase]:
+    async def search_series(self, query: str) -> list[SeriesSearchResponse]:
         """
         Search for a series by name/keywords.
 

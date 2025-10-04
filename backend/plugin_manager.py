@@ -39,7 +39,7 @@ class PluginManager:
         module = importlib.import_module(module_path)
         cls: Type = getattr(module, class_name)
         
-        instance = cls(manifest)
+        instance = cls()
         self.plugins[manifest["name"]] = instance
         return instance
 

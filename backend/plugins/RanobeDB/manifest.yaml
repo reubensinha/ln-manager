@@ -3,5 +3,5 @@ version: 0.1.0
 description: RanobeDB metadata source plugin
 author: Reuben Sinha
 type: metadata
-entry_point: backend/plugins/RanobeDB/ranobedb.py:RanobeDBPlugin
+entry_point: ranobedb:RanobeDBPlugin
 dependencies: []

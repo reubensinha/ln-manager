@@ -12,7 +12,7 @@ from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 router = APIRouter()
 
 
-@router.get("/search", response_model=list[SeriesPublic])
+@router.get("/search", response_model=list[SeriesSearchResponse])
 async def search_series(query: str, source: str):
     # TODO: Determine response model
     plugin = plugin_manager.get_plugin(source)
