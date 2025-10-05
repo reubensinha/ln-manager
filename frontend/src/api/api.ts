@@ -1,6 +1,33 @@
 // TODO: Implement API calls when backend is ready.
+import axios from 'axios';
+import type { searchSeriesResponse, SeriesGroupsResponse } from '../types/ApiResponse';
 
-export async function getSeriesGroups() {
+
+// Get the current protocol and hostname from the browser's address bar
+const protocol = window.location.protocol; // e.g., 'http:' or 'https:'
+const hostname = window.location.hostname; // e.g., 'myapp.com' or 'localhost'
+
+// Construct the API base URL with the different port
+const apiPort = 8000; // Your API's port
+const baseURL = `${protocol}//${hostname}:${apiPort}`;
+
+const api = axios.create({
+  baseURL: baseURL,
+});
+
+export async function searchSeries(query: string, source: string): Promise<searchSeriesResponse[]> {
+  try {
+    const response = await api.get(`/api/v1/search`, {
+      params: { query, source },  
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching series:", error);
+    return [];
+  }
+}
+
+export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
   // Placeholder function to simulate fetching series groups from an API
   return [
     {

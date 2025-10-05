@@ -16,6 +16,7 @@ import NothingFoundBackground from "./notfound/notfound.tsx";
 import Library from "./pages/Library.tsx";
 import Series from "./pages/Series.tsx";
 import Book from "./pages/Book.tsx";
+import Search from "./pages/Search.tsx";
 // import Vite from "./Vite.tsx";
 
 import { pluginManifests } from "./plugin-manifests";
@@ -31,6 +32,7 @@ function App() {
               <Route path="/" element={<Library />} />
               <Route path="/series/:groupID" element={<Series />} />
               <Route path="/book/:bookID" element={<Book />} />
+              <Route path="/search/:source/:query" element={<Search />} />
               <Route path="*" element={<NothingFoundBackground />} />
 
               {/* Plugin Routes */}

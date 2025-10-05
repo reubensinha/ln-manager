@@ -1,6 +1,8 @@
-import { AppShell, Burger } from "@mantine/core";
+import { AppShell, Burger, Group } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { NavbarNested } from "../Navbar/NavbarNested";
+import SpotlightSearch from "../SpotlightSearch";
+// import SearchBar from "../SearchBar";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -20,9 +22,16 @@ function Layout({ children }: LayoutProps) {
       }}
     >
       <AppShell.Header>
-        <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-
-        <div>Logo</div>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <div>Logo</div>
+          </Group>
+          <Group>
+            {/* <SearchBar /> */}
+            <SpotlightSearch />
+          </Group>
+        </Group>
       </AppShell.Header>
 
       <AppShell.Navbar>
