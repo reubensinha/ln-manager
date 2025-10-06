@@ -32,6 +32,7 @@ function App() {
               <Route path="/" element={<Library />} />
               <Route path="/series/:groupID" element={<Series />} />
               <Route path="/book/:bookID" element={<Book />} />
+              <Route path="/search/:source" element={<Search />} />
               <Route path="/search/:source/:query" element={<Search />} />
               <Route path="*" element={<NothingFoundBackground />} />
 

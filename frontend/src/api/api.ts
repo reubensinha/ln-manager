@@ -1,6 +1,6 @@
 // TODO: Implement API calls when backend is ready.
 import axios from 'axios';
-import type { searchSeriesResponse, SeriesGroupsResponse } from '../types/ApiResponse';
+import type { searchSeriesResponse, SeriesGroupsResponse, PluginResponse } from '../types/ApiResponse';
 
 
 // Get the current protocol and hostname from the browser's address bar
@@ -165,15 +165,24 @@ export async function getBookByID(id: string) {
   };
 }
 
-export async function getPlugins() {
+export async function getPlugins(): Promise<PluginResponse[]> {
   // Placeholder function to simulate fetching plugins from an API
   return [
     {
+      id: "RanobeDB",
+      name: "RanobeDB",
+      type: "metadata",
+      version: "1.0.0",
+      description: "Plugin to fetch metadata from RanobeDB",
+    },
+    {
       id: "plugin1",
       name: "Plugin 1",
+      type: "generic",
+      version: "0.1.0",
       routes: [
         {
-          path: "/plugin1",
+          path: "/plugin/plugin1",
           component: "Plugin1",
         },
       ],
@@ -181,7 +190,7 @@ export async function getPlugins() {
         {
           label: "Plugin 1 Link",
           icon: "TbGauge",
-          link: "/plugin1",
+          link: "/plugin/plugin1",
         },
       ],
     },
