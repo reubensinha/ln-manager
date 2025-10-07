@@ -11,6 +11,17 @@ from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 
 router = APIRouter()
 
+@router.get("/series_details/{source}", response_model=SeriesDetailsResponse)
+async def get_series_details(source: str, external_id: str):
+    plugin = plugin_manager.get_plugin(source)
+    if not plugin or not isinstance(plugin, MetadataPlugin):
+        raise HTTPException(status_code=404, detail="Metadata source not found")
+    
+    if not external_id:
+        raise HTTPException(status_code=400, detail="external_id query parameter is required")
+
+    result = await plugin.get_series_by_id(external_id)
+    return result
 
 @router.get("/search", response_model=list[SeriesSearchResponse])
 async def search_series(query: str, source: str):
@@ -44,7 +55,7 @@ async def fetch_series(
         raise HTTPException(status_code=404, detail="Metadata source not found")
 
     # ----- Fetch From Plugin-----
-    data: SeriesFetchModel = await plugin.fetch_series(request.external_id)
+    data: SeriesFetchModel | None = await plugin.fetch_series(request.external_id)
     if not data or not data.series:
         raise HTTPException(
             status_code=404,

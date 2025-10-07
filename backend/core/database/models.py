@@ -1,4 +1,5 @@
 # from __future__ import annotations
+from datetime import date
 from sqlmodel import Field, SQLModel, Relationship
 from typing import Literal
 import uuid
@@ -172,6 +173,43 @@ class SeriesSearchResponse(SQLModel):
     language: LanguageCode | None = None
     orig_language: LanguageCode | None = None
     img_url: str | None = None
+
+
+PublishingStatus = Literal["unknown", "ongoing", "completed", "hiatus", "stalled", "cancelled"]
+
+class ExternalLink(SQLModel):
+    name: str
+    url: str
+    icon_url: str | None = None
+    
+class StaffRole(SQLModel):
+    name: str
+    role: str
+    
+class SeriesDetailsResponse(SQLModel):
+    external_id: str
+    title: str
+    romaji: str | None = None
+    title_orig: str | None = None
+    aliases: list[str] | None = None
+    description: str | None = None
+    volumes: int | None = None
+    chapters: int | None = None
+    language: str | None = None
+    orig_language: str | None = None
+    img_url: str | None = None
+    publishing_status: PublishingStatus | None = None
+    external_links: list[ExternalLink] | None = None
+    start_date: date | None = None
+    end_date: date | None = None             ## TODO: Standardize date format
+    publishers: list[str] | None = None     ## TODO: Standardize date format
+    authors: list[str] | None = None
+    artists: list[str] | None = None
+    other_staff: list[StaffRole] | None = None
+    genres: list[str] | None = None
+    tags: list[str] | None = None
+    demographics: list[str] | None = None
+    content_tags: list[str] | None = None
 
 
 ################################################################################

@@ -1,6 +1,7 @@
 // TODO: Implement API calls when backend is ready.
 import axios from 'axios';
-import type { searchSeriesResponse, SeriesGroupsResponse, PluginResponse } from '../types/ApiResponse';
+import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse } from './ApiResponse';
+import type { Series } from '../api/ApiResponse';
 
 
 // Get the current protocol and hostname from the browser's address bar
@@ -9,15 +10,15 @@ const hostname = window.location.hostname; // e.g., 'myapp.com' or 'localhost'
 
 // Construct the API base URL with the different port
 const apiPort = 8000; // Your API's port
-const baseURL = `${protocol}//${hostname}:${apiPort}`;
+const baseURL = `${protocol}//${hostname}:${apiPort}/api/v1`;
 
 const api = axios.create({
   baseURL: baseURL,
 });
 
-export async function searchSeries(query: string, source: string): Promise<searchSeriesResponse[]> {
+export async function searchSeries(query: string, source: string): Promise<SearchSeriesResponse[]> {
   try {
-    const response = await api.get(`/api/v1/search`, {
+    const response = await api.get(`/search`, {
       params: { query, source },  
     });
     return response.data;
@@ -131,10 +132,11 @@ export async function getSeries() {
   ];
 }
 
-export async function getSeriesById(id: string) {
+export async function getSeriesById(id: string): Promise<Series | null> {
   // Placeholder function to simulate fetching a single series by ID from an API
   return {
     id,
+    external_id: `ext-${id}`,
     title: `Series ${id}`,
     description: `Description of Series ${id}`,
     img_url: "/test_img/32510.jpg",
@@ -153,6 +155,19 @@ export async function getSeriesById(id: string) {
       },
     ],
   };
+}
+
+export async function getSeriesFromSource(source: string, external_id: string): Promise<SeriesSourceResponse | null> {
+  // Placeholder function to simulate fetching series data from an external source
+  try {
+    const response = await api.get(`/series_details/${source}`, {
+      params: { external_id },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching series:", error);
+    return null;
+  } 
 }
 
 export async function getBookByID(id: string) {

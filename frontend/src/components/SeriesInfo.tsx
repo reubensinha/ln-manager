@@ -1,7 +1,7 @@
 import { Group, Text, Title, Image, Stack, Badge } from "@mantine/core";
-import type { SeriesItem } from "../types/CardItems";
+import type { SeriesSourceResponse } from "../api/ApiResponse";
 
-function SeriesInfo({ series }: { series: SeriesItem }) {
+function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
   return (
     <Group align="flex-start">
       <Image

@@ -1,7 +1,7 @@
 import { Group, Text, Title, Image, Stack, Badge } from "@mantine/core";
-import type { BookItem } from "../types/CardItems";
+import type { Book } from "../api/ApiResponse";
 
-function BookInfo({ book }: { book: BookItem }) {
+function BookInfo({ book }: { book: Book }) {
   return (
     <Group align="flex-start">
       <Image

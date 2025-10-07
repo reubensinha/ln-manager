@@ -140,7 +140,7 @@ async def fetch_multiple_endpoints(endpoints: List[str]) -> List[dict]:
         tasks = [fetch_endpoint(ep, client) for ep in endpoints]
         
         # Run them concurrently, allowing the rate limiter to manage the flow
-        results = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks, return_exceptions=False)         ## TODO: Handle exceptions if needed
         return results
 
 # -------------------------

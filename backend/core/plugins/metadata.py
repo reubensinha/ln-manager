@@ -5,7 +5,7 @@ from abc import abstractmethod
 from sqlmodel import SQLModel
 from .base import BasePlugin
 
-from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase, SeriesSearchResponse
+from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase, SeriesSearchResponse, SeriesDetailsResponse
 
 class BookFetchModel(BookBase):
     """
@@ -60,9 +60,21 @@ class MetadataPlugin(BasePlugin):
             List of Series objects with minimal info (id, title, etc.).
         """
         raise NotImplementedError
+    
+    @abstractmethod
+    async def get_series_by_id(self, external_id: str) -> SeriesDetailsResponse | None:
+        """
+        Fetch basic metadata for a single series by its external ID.
+
+        Args:
+            external_id (str): The external ID of the series to fetch.
+        Returns:
+            SeriesBase: A model containing the basic series metadata.
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    async def fetch_series(self, external_id: str) -> SeriesFetchModel:
+    async def fetch_series(self, external_id: str) -> SeriesFetchModel | None:
         """
         Fetch full metadata for a single series.
 

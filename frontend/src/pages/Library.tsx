@@ -21,7 +21,7 @@ function Library() {
   return (
     <SimpleGrid
       type="container"
-      cols={{ base: 2, "500px": 5, "1000px": 10 }}
+      cols={{ base: 2, "500px": 5, "1000px": 8 }}
     >
       {series.map((seriesItem) => (
         <ItemCard key={seriesItem.id} item={seriesItem} />

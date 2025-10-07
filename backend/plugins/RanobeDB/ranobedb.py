@@ -1,7 +1,8 @@
 # TODO: Implement the actual logic for the RanobeDB plugin.
-from backend.core.database.models import SeriesSearchResponse
+from datetime import date, datetime
+from backend.core.database.models import ExternalLink, SeriesDetailsResponse, SeriesSearchResponse, StaffRole
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
-from .ranobedb_api import IMAGE_BASE_URL, get_series
+from .ranobedb_api import IMAGE_BASE_URL, get_series, get_series_by_id
 
 
 class RanobeDBPlugin(MetadataPlugin):
@@ -39,6 +40,19 @@ class RanobeDBPlugin(MetadataPlugin):
 
         return title
     
+    @staticmethod
+    def _parse_date(date_int: int | None) -> date | None:
+        """
+        Parse a date integer from the API into a date object.
+        Handles YYYYMMDD format.
+        """
+        if not date_int:
+            return None
+        try:
+            return datetime.strptime(str(date_int), "%Y%m%d").date()
+        except (ValueError, TypeError):
+            return None
+    
     def start(self) -> None:
         print("RanobeDB plugin started")
 
@@ -49,31 +63,6 @@ class RanobeDBPlugin(MetadataPlugin):
     async def search_series(self, query: str) -> list[SeriesSearchResponse]:
         results = await get_series(query)
         series_list = results.get("series", [])
-        
-        # search_results = []
-        # for series in series_list:
-        #     external_id = series.get("id")
-        #     language = series.get("lang")
-        #     orig_language = series.get("olang")
-            
-        #     title = self._determine_title(language, series)
-        #     volumes = series.get("c_num_books") or series.get("volumes", {}).get("count")
-        #     img_url = (
-        #         series.get("book", {})
-        #         .get("image", {})
-        #         .get("filename")
-        #     )
-        #
-        #     search_results.append(SeriesSearchResponse(
-        #         external_id=external_id,
-        #         title=title,
-        #         language=language,
-        #         orig_language=orig_language,
-        #         volumes=volumes,
-        #         img_url=img_url
-        #     ))
-
-        # return search_results
 
         return [
             SeriesSearchResponse(
@@ -90,6 +79,61 @@ class RanobeDBPlugin(MetadataPlugin):
             )
             for series in series_list
         ]
+    
+    async def get_series_by_id(self, external_id: str) -> SeriesDetailsResponse | None:
+        try:
+            series = await get_series_by_id(int(external_id))
+        except ValueError:
+            raise ValueError("Invalid external_id format; must be an integer string")
 
-    async def fetch_series(self, external_id: str) -> SeriesFetchModel:
+        if not series:
+            return None
+
+        authors = [s.get("name") for s in series.get("staff", []) if s.get("role_type") == "author" and s.get("name")]
+        artists = [s.get("name") for s in series.get("staff", []) if s.get("role_type") == "artist" and s.get("name")]
+        other_staff = [
+            StaffRole(name=s.get("name"), role=s.get("role"))
+            for s in series.get("staff", [])
+            if s.get("role_type") not in ["author", "artist"] and s.get("name") and s.get("role")
+        ]
+        
+        genres = [t.get("name") for t in series.get("tags", []) if t.get("ttype") == "genre" and t.get("name")]
+        tags = [t.get("name") for t in series.get("tags", []) if t.get("ttype") == "tag" and t.get("name")]
+        demographics = [t.get("name") for t in series.get("tags", []) if t.get("ttype") == "demographic" and t.get("name")]
+        content_tags = [t.get("name") for t in series.get("tags", []) if t.get("ttype") == "content" and t.get("name")]
+        
+        img_filename = None
+        if books := series.get("books"):
+            if books[0] and (image := books[0].get("image")):
+                img_filename = image.get("filename")
+
+        return SeriesDetailsResponse(
+            external_id=str(series.get("id")),
+            title=self._determine_title(series.get("lang") or "", series),
+            romaji=series.get("romaji"),
+            title_orig=series.get("title_orig"),
+            aliases=series.get("aliases", "").split("\n") if series.get("aliases") else [],
+            description=series.get("description"),
+            volumes=len(series.get("books", [])),
+            language=series.get("lang"),
+            orig_language=series.get("olang"),
+            img_url=f"{self._base_img_url}/{img_filename}" if img_filename else None,
+            publishing_status=series.get("publication_status"),
+            external_links=[
+                ExternalLink(name=link.get("name"), url=link.get("url"))
+                for link in series.get("urls", [])
+            ],
+            start_date=self._parse_date(series.get("start_date")),
+            end_date=self._parse_date(series.get("end_date")),
+            publishers=[p.get("name") for p in series.get("publishers", []) if p.get("name")],
+            authors=authors,
+            artists=artists,
+            other_staff=other_staff,
+            genres=genres,
+            tags=tags,
+            demographics=demographics,
+            content_tags=content_tags,
+        )
+
+    async def fetch_series(self, external_id: str) -> SeriesFetchModel | None:
         raise NotImplementedError("RanobeDB fetch_series not yet implemented")

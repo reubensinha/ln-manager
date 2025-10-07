@@ -5,14 +5,18 @@ import { type CardItem } from "../../types/CardItems";
 
 const stripColor = "red";
 
-// TODO: If Series, link to /series/:id if Book, link to /book/:id, else link to nothing.
+// TODO: If CardItem link != null then link to it else if Series, link to /series/:id if Book, link to /book/:id, else link to nothing.
 
 function ItemCard({ item }: { item: CardItem }) {
+  const link = item.link ?? "#";
+  const inLibrary = item.in_library ?? true;
+  const barVisible = inLibrary ? 5 : 0;
+  
   return (
     <AspectRatio ratio={1 / 2} style={{ width: 400 }} mx="auto">
       <Card
         component={Link}
-        to={item.link ?? "#"}
+        to={link}
         withBorder
         radius="sm"
         style={{ overflow: "visible" }}
@@ -22,10 +26,10 @@ function ItemCard({ item }: { item: CardItem }) {
         </Card.Section>
 
         {/* TODO: Add dynamic Color Strip Section once backend api is ready */}
-        <Card.Section style={{ backgroundColor: stripColor, height: 5 }} />
+        <Card.Section style={{ backgroundColor: stripColor, height: barVisible }} />
 
         <Card.Section className={classes.footer}>
-          <Text fw={500} size="sm">
+          <Text fw={500} size="sm" lineClamp={3}>
             {item.title}
           </Text>
         </Card.Section>

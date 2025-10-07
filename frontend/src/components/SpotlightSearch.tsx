@@ -17,7 +17,7 @@ import {
 
 import { TbSearch } from "react-icons/tb";
 
-import { type SeriesGroupsResponse } from "../types/ApiResponse.ts";
+import { type SeriesGroupsResponse } from "../api/ApiResponse.ts";
 import { getSeriesGroups } from "../api/api.ts";
 
 // TODO: Use API to fetch metadata plugins to search from.

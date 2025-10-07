@@ -7,15 +7,15 @@ import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
 import {
   type SeriesGroupItem,
-  type BookItem,
-  type SeriesItem,
+  type CardItem,
 } from "../types/CardItems";
+import { type Series } from "../api/ApiResponse";
 
 function Series() {
   const { groupID } = useParams<{ groupID: string }>();
   const [seriesGroup, setSeriesGroup] = useState<SeriesGroupItem | null>(null);
-  const [series, setSeries] = useState<SeriesItem | null>(null);
-  const [books, setBooks] = useState<BookItem[]>([]);
+  const [series, setSeries] = useState<Series | null>(null);
+  const [books, setBooks] = useState<CardItem[]>([]);
 
   useEffect(() => {
     if (groupID) {
@@ -28,10 +28,10 @@ function Series() {
   useEffect(() => {
     if (seriesGroup) {
       getSeriesById(seriesGroup.series[0].id).then((data) => {
-        const booksWithLinks = data.books.map((item) => ({
+        const booksWithLinks = data?.books?.map((item) => ({
           ...item,
           link: `/book/${item.id}`,
-        }));
+        })) ?? [];
         setSeries(data);
         setBooks(booksWithLinks);
       });
@@ -40,10 +40,10 @@ function Series() {
 
   const handleTabChange = (seriesId: string) => {
     getSeriesById(seriesId).then((data) => {
-      const booksWithLinks = data.books.map((item) => ({
+      const booksWithLinks = data?.books?.map((item) => ({
         ...item,
         link: `/book/${item.id}`,
-      }));
+      })) ?? [];
       setSeries(data);
       setBooks(booksWithLinks);
     });
