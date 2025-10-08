@@ -194,7 +194,9 @@ class RanobeDBPlugin(MetadataPlugin):
             aliases=(
                 series.get("aliases", "").split("\n") if series.get("aliases") else []
             ),
-            description=series.get("description"),
+            description=series.get("description")
+            or series.get("book_description", {}).get("description")
+            or series.get("book_description", {}).get("description_ja"),
             volumes=len(series.get("books", [])),
             language=series.get("lang"),
             orig_language=series.get("olang"),
@@ -386,6 +388,13 @@ class RanobeDBPlugin(MetadataPlugin):
                 and s.get("role")
             ]
 
+            img_filename = book_detail.get("image", {}).get("filename")
+            nsfw_img = (
+                book_detail.get("image", {}).get("nsfw", False)
+                if book_detail.get("image")
+                else False
+            )
+
             # Assemble Data into BookFetchModel
             book_base = BookBase(
                 external_id=str(book_detail.get("id")),
@@ -396,6 +405,9 @@ class RanobeDBPlugin(MetadataPlugin):
                 title_orig=book_detail.get("title_orig"),
                 description=book_detail.get("description")
                 or series_details.get("description_ja"),
+                img_path=(
+                    f"{self._base_img_url}/{img_filename}" if img_filename else None
+                ),
                 authors=authors,
                 artists=artists,
                 other_staff=other_staff,
@@ -404,11 +416,7 @@ class RanobeDBPlugin(MetadataPlugin):
                 release_date=self._parse_date(book_detail.get("c_release_date")),
                 sort_order=book_in_series.get("sort_order"),
                 source_url=f"https://ranobedb.org/book/{book_detail.get('id')}",
-                nsfw_img=(
-                    book_detail.get("image", {}).get("nsfw", False)
-                    if book_detail.get("image")
-                    else False
-                ),
+                nsfw_img=nsfw_img,
                 series_id=uuid4(),  # Will be ignored and set by the caller
             )
 

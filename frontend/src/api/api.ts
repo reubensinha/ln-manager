@@ -155,13 +155,15 @@ export async function getSeriesById(id: string): Promise<Series | null> {
         id: "1",
         title: "Book 1",
         description: "Description of Book 1",
-        img_url: "/test_img/32510.jpg",
+        img_path: "/test_img/32510.jpg",
+        nsfw_img: false,
       },
       {
         id: "2",
         title: "Book 2",
         description: "Description of Book 2",
-        img_url: "/test_img/32510.jpg",
+        img_path: "/test_img/32510.jpg",
+        nsfw_img: false,
       },
     ],
     nsfw_img: false,
@@ -187,7 +189,8 @@ export async function getBookByID(id: string) {
     id,
     title: `Book ${id}`,
     description: `Description of Book ${id}`,
-    img_url: "/test_img/32510.jpg",
+    img_path: "/test_img/32510.jpg",
+    nsfw_img: false,
   };
 }
 

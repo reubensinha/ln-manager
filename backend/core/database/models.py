@@ -1,6 +1,7 @@
 # from __future__ import annotations
 from datetime import date
 from enum import Enum
+from httpx import delete
 from sqlmodel import Field, SQLModel, Relationship
 from typing import Literal
 import uuid
@@ -226,6 +227,7 @@ class SeriesDetailsResponse(SQLModel):
     content_tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
     source_url: str | None = None
     nsfw_img: bool = False
+    deleted: bool = False
 
 
 ################################################################################
@@ -363,6 +365,7 @@ class SeriesBase(SQLModel):
     img_path: str | None = None
     source_url: str | None = None
     nsfw_img: bool = False
+    deleted: bool = False
 
     source_id: uuid.UUID | None = Field(
         foreign_key="metadataplugintable.id", ondelete="SET NULL"
@@ -424,16 +427,17 @@ class BookBase(SQLModel):
     romaji: str | None = Field(default=None, index=True)
     title_orig: str | None = Field(default=None, index=True)
     description: str | None = None
+    img_path: str | None = None
     language: LanguageCode | None = None
     orig_language: LanguageCode | None = None
     release_date: date | None = None  ## TODO: Standardize date format
     authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
     artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
     other_staff: list[dict] | None = Field(default=None, sa_column=Column(JSON))
-    description: str | None = None
     sort_order: int | None = Field(default=None, index=True)
     source_url: str | None = None
     nsfw_img: bool = False
+    deleted: bool = False
 
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
@@ -483,6 +487,7 @@ class ChapterBase(SQLModel):
     number: int | None = Field(default=None, index=True)
     volume: int | None = Field(default=None, index=True)
     description: str | None = None
+    deleted: bool = False
 
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
@@ -541,6 +546,7 @@ class ReleaseBase(SQLModel):
     isbn: str | None = None
     links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     source_url: str | None = None
+    deleted: bool = False
 
     chapter_id: uuid.UUID | None = Field(
         default=None, foreign_key="chapter.id", ondelete="CASCADE"
