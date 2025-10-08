@@ -97,42 +97,136 @@ async def fetch_series(
                 detail=f"Metadata source {request.source} not found in database",
             )
 
-        # ----- Add Series -----
-        series_obj = Series.model_validate(
-            data.series, update={"source_id": db_plugin.id, "group_id": group.id}
-        )
+        # ----- Add or Update Series -----
+        existing_series = session.exec(
+            select(Series).where(
+                Series.source_id == db_plugin.id,
+                Series.external_id == request.external_id,
+            )
+        ).first()
 
-        session.add(series_obj)
+        if existing_series:
+            # Update existing series
+            for key, value in data.series.model_dump(
+                exclude={"id", "source_id", "group_id"}
+            ).items():
+                setattr(existing_series, key, value)
+            existing_series.deleted = False
+            
+            # Update group if explicitly requested
+            if request.series_group:
+                existing_series.group_id = uuid.UUID(request.series_group)
+            # else: keep existing group_id
+            
+            series_obj = existing_series
+        else:
+            # Create new series
+            series_obj = Series.model_validate(
+                data.series, update={"source_id": db_plugin.id, "group_id": group.id}
+            )
+            session.add(series_obj)
+
         session.flush()
 
         # ----- Add Books -----
         for book_model in data.books:
-            book_obj = Book.model_validate(
-                book_model.book, update={"series_id": series_obj.id}
-            )
-            session.add(book_obj)
+            existing_book = session.exec(
+                select(Book).where(
+                    Book.series_id == series_obj.id,
+                    Book.external_id == book_model.book.external_id,
+                )
+            ).first()
+
+            if existing_book:
+                for key, value in book_model.book.model_dump(
+                    exclude={"id", "series_id"}
+                ).items():
+                    setattr(existing_book, key, value)
+                existing_book.deleted = False
+                book_obj = existing_book
+            else:
+                book_obj = Book.model_validate(
+                    book_model.book, update={"series_id": series_obj.id}
+                )
+                session.add(book_obj)
+
             session.flush()
 
             for release_model in book_model.releases:
-                release_obj = Release.model_validate(
-                    release_model, update={"book_id": book_obj.id}
-                )
-                session.add(release_obj)
+                existing_release = session.exec(
+                    select(Release).where(
+                        Release.book_id == book_obj.id,
+                        Release.external_id == release_model.external_id,
+                    )
+                ).first()
+
+                if existing_release:
+                    for key, value in release_model.model_dump(
+                        exclude={"id", "book_id", "chapter_id"}
+                    ).items():
+                        setattr(existing_release, key, value)
+                    existing_release.deleted = False
+                else:
+                    release_obj = Release.model_validate(
+                        release_model, update={"book_id": book_obj.id}
+                    )
+                    session.add(release_obj)
 
         # ----- Add Chapters -----
         for chapter_model in data.chapters:
-            chapter_obj = Chapter.model_validate(
-                chapter_model, update={"series_id": series_obj.id}
-            )
-            session.add(chapter_obj)
+
+            exisiting_chapter = session.exec(
+                select(Chapter).where(
+                    Chapter.series_id == series_obj.id,
+                    Chapter.number == chapter_model.number,
+                    Chapter.volume == chapter_model.volume,
+                )
+            ).first()
+
+            if exisiting_chapter:
+                for key, value in chapter_model.model_dump(
+                    exclude={"id", "series_id"}
+                ).items():
+                    setattr(exisiting_chapter, key, value)
+                exisiting_chapter.deleted = False
+                chapter_obj = exisiting_chapter
+            else:
+                chapter_obj = Chapter.model_validate(
+                    chapter_model, update={"series_id": series_obj.id}
+                )
+                session.add(chapter_obj)
             session.flush()
 
             for release_model in chapter_model.releases:
-                release_obj = Release.model_validate(
-                    release_model, update={"chapter_id": chapter_obj.id}
-                )
-                session.add(release_obj)
+                existing_release = session.exec(
+                    select(Release).where(
+                        Release.chapter_id == chapter_obj.id,
+                        Release.external_id == release_model.external_id,
+                    )
+                ).first()
 
+                if existing_release:
+                    for key, value in release_model.model_dump(
+                        exclude={"id", "book_id", "chapter_id"}
+                    ).items():
+                        setattr(existing_release, key, value)
+                    existing_release.deleted = False
+                else:
+                    release_obj = Release.model_validate(
+                        release_model, update={"chapter_id": chapter_obj.id}
+                    )
+                    session.add(release_obj)
+
+        # ----- Mark Missing Books as Deleted -----
+        fetched_book_external_ids = {b.book.external_id for b in data.books if b.book.external_id}
+        existing_books = session.exec(
+            select(Book).where(Book.series_id == series_obj.id)
+        ).all()
+
+        for existing_book in existing_books:
+            if existing_book.external_id not in fetched_book_external_ids:
+                existing_book.deleted = True
+        
         session.commit()
         session.refresh(series_obj)
     except Exception as e:
