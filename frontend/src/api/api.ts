@@ -28,6 +28,16 @@ export async function searchSeries(query: string, source: string): Promise<Searc
   }
 }
 
+export async function addSeries(source: string, external_id: string, series_group: string | null = null): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.post(`/add/series`, { source, external_id, series_group });
+    return response.data;
+  } catch (error) {
+    console.error("Error adding series:", error);
+    return { success: false, message: "Failed to add series" };
+  }
+}
+
 export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
   // Placeholder function to simulate fetching series groups from an API
   return [
@@ -154,6 +164,7 @@ export async function getSeriesById(id: string): Promise<Series | null> {
         img_url: "/test_img/32510.jpg",
       },
     ],
+    nsfw_img: false,
   };
 }
 

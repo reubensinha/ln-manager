@@ -129,7 +129,7 @@ async def get_series_by_id(series_id: int) -> dict:
         Dict: JSON response for that series
 
     JSON response structure:
-        {
+        series:{
             id: number;
             lang: Language;
             romaji: string | null;
@@ -286,7 +286,7 @@ async def get_book_by_id(book_id: int) -> dict:
         Dict: JSON response
 
     JSON response structure:
-        {
+        book: {
             description: string;
             lang: Language;
             id: number;

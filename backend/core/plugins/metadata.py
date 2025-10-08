@@ -7,7 +7,7 @@ from .base import BasePlugin
 
 from backend.core.database.models import SeriesBase, BookBase, ChapterBase, ReleaseBase, SeriesSearchResponse, SeriesDetailsResponse
 
-class BookFetchModel(BookBase):
+class BookFetchModel(SQLModel):
     """
     Data model for a Book when fetched as part of a Series.
 
@@ -17,6 +17,7 @@ class BookFetchModel(BookBase):
         releases (list[ReleaseBase]): A list of all releases (e.g., digital, print editions) 
                                       associated with this specific book.
     """
+    book: BookBase
     releases: list[ReleaseBase] = []
 
 class ChapterFetchModel(ChapterBase):
@@ -29,6 +30,7 @@ class ChapterFetchModel(ChapterBase):
         releases (list[ReleaseBase]): A list of all releases associated with this chapter
                                       (e.g., web novel chapters or translated chapters).
     """
+    chapter: ChapterBase
     releases: list[ReleaseBase] = []
 
 class SeriesFetchModel(SQLModel):
@@ -38,7 +40,7 @@ class SeriesFetchModel(SQLModel):
     This aggregates all related data from an external source into a single structure.
 
     Fields:
-        series (SeriesBase): The core series metadata (title, status, etc.).
+        series (SeriesBase): The core series metadata (title, status, etc.). source_id and group_id field will be ignored.
         books (list[BookFetchModel]): A list of books belonging to this series, 
                                       each including its associated releases.
         chapters (list[ChapterFetchModel]): A list of chapters belonging to this series 

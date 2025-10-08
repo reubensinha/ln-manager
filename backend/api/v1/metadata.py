@@ -1,31 +1,35 @@
-from click import group
 from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import SQLModel, create_engine, Session, select
+from httpx import get
+from sqlmodel import SQLModel, Session, select
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.plugin_manager import plugin_manager
 from backend.core.database.models import *
+import uuid
 
 from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 
 router = APIRouter()
 
+
 @router.get("/series_details/{source}", response_model=SeriesDetailsResponse)
 async def get_series_details(source: str, external_id: str):
     plugin = plugin_manager.get_plugin(source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
         raise HTTPException(status_code=404, detail="Metadata source not found")
-    
+
     if not external_id:
-        raise HTTPException(status_code=400, detail="external_id query parameter is required")
+        raise HTTPException(
+            status_code=400, detail="external_id query parameter is required"
+        )
 
     result = await plugin.get_series_by_id(external_id)
     return result
 
+
 @router.get("/search", response_model=list[SeriesSearchResponse])
 async def search_series(query: str, source: str):
-    # TODO: Determine response model
     plugin = plugin_manager.get_plugin(source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
         raise HTTPException(status_code=404, detail="Metadata source not found")
@@ -35,19 +39,23 @@ async def search_series(query: str, source: str):
     return results
 
 
-
 class AddSeriesRequest(SQLModel):
-    external_id: str
     source: str
+    external_id: str
     series_group: str | None = None  # optional name of the series group
 
-# TODO: Check if this is the correct HTTP method to use.
-@router.post("/add/series/{external_id}", response_model=SeriesPublic)
+
+class AddSeriesResponse(SQLModel):
+    success: bool
+    message: str
+
+
+@router.post("/add/series", response_model=AddSeriesResponse)
 async def fetch_series(
     request: AddSeriesRequest,
     session: Session = Depends(get_session),
 ):
-    #  TODO: Add series to database.
+    #  TODO: Update add to Database Fields.
 
     # ----- Lookup Plugin -----
     plugin = plugin_manager.get_plugin(request.source)
@@ -68,7 +76,8 @@ async def fetch_series(
             group = session.get(SeriesGroup, uuid.UUID(request.series_group))
             if not group:
                 raise HTTPException(
-                    status_code=404, detail=f"Series group {request.series_group} not found"
+                    status_code=404,
+                    detail=f"Series group {request.series_group} not found",
                 )
 
         else:
@@ -78,7 +87,9 @@ async def fetch_series(
 
         # ----- Lookup Plugin in Database -----
         db_plugin = session.exec(
-            select(MetadataPluginTable).where(MetadataPluginTable.name == request.source)
+            select(MetadataPluginTable).where(
+                MetadataPluginTable.name == request.source
+            )
         ).first()
         if not db_plugin:
             raise HTTPException(
@@ -87,56 +98,38 @@ async def fetch_series(
             )
 
         # ----- Add Series -----
-        series_obj = Series(
-            title=data.series.title,
-            author=data.series.author,
-            description=data.series.description,
-            source_id=db_plugin.id,
-            group_id=group.id,
+        series_obj = Series.model_validate(
+            data.series, update={"source_id": db_plugin.id, "group_id": group.id}
         )
+
         session.add(series_obj)
         session.flush()
 
         # ----- Add Books -----
-        for book in data.books:
-            book_obj = Book(
-                title=book.title,
-                author=book.author,
-                description=book.description,
-                volume=book.volume,
-                series_id=series_obj.id,
+        for book_model in data.books:
+            book_obj = Book.model_validate(
+                book_model.book, update={"series_id": series_obj.id}
             )
             session.add(book_obj)
             session.flush()
 
-            for release in book.releases:
-                release_obj = Release(
-                    url=release.url,
-                    format=release.format,
-                    release_date=release.release_date,
-                    book_id=book_obj.id,
+            for release_model in book_model.releases:
+                release_obj = Release.model_validate(
+                    release_model, update={"book_id": book_obj.id}
                 )
                 session.add(release_obj)
 
         # ----- Add Chapters -----
-        for chapter in data.chapters:
-            chapter_obj = Chapter(
-                title=chapter.title,
-                author=chapter.author,
-                number=chapter.number,
-                volume=chapter.volume,
-                description=chapter.description,
-                series_id=series_obj.id,
+        for chapter_model in data.chapters:
+            chapter_obj = Chapter.model_validate(
+                chapter_model, update={"series_id": series_obj.id}
             )
             session.add(chapter_obj)
             session.flush()
 
-            for release in chapter.releases:
-                release_obj = Release(
-                    url=release.url,
-                    format=release.format,
-                    release_date=release.release_date,
-                    chapter_id=chapter_obj.id,
+            for release_model in chapter_model.releases:
+                release_obj = Release.model_validate(
+                    release_model, update={"chapter_id": chapter_obj.id}
                 )
                 session.add(release_obj)
 
@@ -146,5 +139,5 @@ async def fetch_series(
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
 
-    series_public = SeriesPublic.model_validate(series_obj)
-    return series_public
+    # series_public = SeriesPublic.model_validate(series_obj)
+    return {"success": True, "message": "Series added successfully"}

@@ -1,64 +1,66 @@
 # from __future__ import annotations
 from datetime import date
+from enum import Enum
 from sqlmodel import Field, SQLModel, Relationship
 from typing import Literal
 import uuid
 
+from sqlmodel import Column, JSON
+
 # if TYPE_CHECKING:
 #     from .plugins import MetadataPlugin, MetadataPluginPublic
 
-LanguageCode = Literal[
-    "ja",
-    "en",
-    "zh-Hans",
-    "zh-Hant",
-    "fr",
-    "es",
-    "ko",
-    "ar",
-    "bg",
-    "ca",
-    "cs",
-    "ck",
-    "da",
-    "de",
-    "el",
-    "eo",
-    "eu",
-    "fa",
-    "fi",
-    "ga",
-    "gd",
-    "he",
-    "hi",
-    "hr",
-    "hu",
-    "id",
-    "it",
-    "iu",
-    "mk",
-    "ms",
-    "la",
-    "lt",
-    "lv",
-    "nl",
-    "no",
-    "pl",
-    "pt-pt",
-    "pt-br",
-    "ro",
-    "ru",
-    "sk",
-    "sl",
-    "sr",
-    "sv",
-    "ta",
-    "th",
-    "tr",
-    "uk",
-    "ur",
-    "vi",
-]
+class LanguageCode(str, Enum):
+    JA = "ja"
+    EN = "en"
+    ZH_HANS = "zh-Hans"
+    ZH_HANT = "zh-Hant"
+    FR = "fr"
+    ES = "es"
+    KO = "ko"
+    AR = "ar"
+    BG = "bg"
+    CA = "ca"
+    CS = "cs"
+    CK = "ck"
+    DA = "da"
+    DE = "de"
+    EL = "el"
+    EO = "eo"
+    EU = "eu"
+    FA = "fa"
+    FI = "fi"
+    GA = "ga"
+    GD = "gd"
+    HE = "he"
+    HI = "hi"
+    HR = "hr"
+    HU = "hu"
+    ID = "id"
+    IT = "it"
+    IU = "iu"
+    MK = "mk"
+    MS = "ms"
+    LA = "la"
+    LT = "lt"
+    LV = "lv"
+    NL = "nl"
+    NO = "no"
+    PL = "pl"
+    PT_PT = "pt-pt"
+    PT_BR = "pt-br"
+    RO = "ro"
+    RU = "ru"
+    SK = "sk"
+    SL = "sl"
+    SR = "sr"
+    SV = "sv"
+    TA = "ta"
+    TH = "th"
+    TR = "tr"
+    UK = "uk"
+    UR = "ur"
+    VI = "vi"
 # Create a reusable Literal type that includes None as a valid option
 
 
@@ -173,43 +175,57 @@ class SeriesSearchResponse(SQLModel):
     language: LanguageCode | None = None
     orig_language: LanguageCode | None = None
     img_url: str | None = None
+    nsfw_img: bool = False
 
 
-PublishingStatus = Literal["unknown", "ongoing", "completed", "hiatus", "stalled", "cancelled"]
+class PublishingStatus(str, Enum):
+    UNKNOWN = "unknown"
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    HIATUS = "hiatus"
+    STALLED = "stalled"
+    CANCELLED = "cancelled"
+
 
 class ExternalLink(SQLModel):
     name: str
     url: str
     icon_url: str | None = None
-    
+
+
 class StaffRole(SQLModel):
     name: str
     role: str
-    
+
+
 class SeriesDetailsResponse(SQLModel):
     external_id: str
     title: str
     romaji: str | None = None
     title_orig: str | None = None
-    aliases: list[str] | None = None
+    aliases: list[str] | None = Field(default=None, sa_column=Column(JSON))
     description: str | None = None
     volumes: int | None = None
     chapters: int | None = None
-    language: str | None = None
-    orig_language: str | None = None
+    language: LanguageCode | None = None
+    orig_language: LanguageCode | None = None
     img_url: str | None = None
     publishing_status: PublishingStatus | None = None
-    external_links: list[ExternalLink] | None = None
+    external_links: list[dict] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
     start_date: date | None = None
-    end_date: date | None = None             ## TODO: Standardize date format
-    publishers: list[str] | None = None     ## TODO: Standardize date format
-    authors: list[str] | None = None
-    artists: list[str] | None = None
-    other_staff: list[StaffRole] | None = None
-    genres: list[str] | None = None
-    tags: list[str] | None = None
-    demographics: list[str] | None = None
-    content_tags: list[str] | None = None
+    end_date: date | None = None  ## TODO: Standardize date format
+    publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    other_staff: list[dict] | None = Field(default=None, sa_column=Column(JSON))
+    genres: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    demographics: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    content_tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    source_url: str | None = None
+    nsfw_img: bool = False
 
 
 ################################################################################
@@ -320,14 +336,33 @@ class SeriesBase(SQLModel):
         group_id (uuid.UUID | None): Foreign key to the SeriesGroup that this Series belongs to.
     """
 
-    title: str = Field(index=True)
-    romaji: str | None = Field(default=None, index=True)
-    title_orig: str | None = Field(default=None, index=True)
-    author: str | None = Field(default=None, index=True)
-    description: str | None = None
     external_id: str | None = Field(
         default=None, index=True
     )  # ID from the external source, if available
+    title: str = Field(index=True)
+    romaji: str | None = Field(default=None, index=True)
+    title_orig: str | None = Field(default=None, index=True)
+    aliases: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    description: str | None = None
+    publishing_status: PublishingStatus | None = None
+    external_links: list[dict] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
+    start_date: date | None = None
+    end_date: date | None = None  ## TODO: Standardize date format
+    publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    other_staff: list[dict] | None = Field(default=None, sa_column=Column(JSON))
+    genres: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    demographics: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    content_tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    language: str | None = None
+    orig_language: str | None = None
+    img_path: str | None = None
+    source_url: str | None = None
+    nsfw_img: bool = False
 
     source_id: uuid.UUID | None = Field(
         foreign_key="metadataplugintable.id", ondelete="SET NULL"
@@ -354,7 +389,9 @@ class Series(SeriesBase, table=True):
     group: SeriesGroup | None = Relationship(back_populates="series")
 
     books: list["Book"] = Relationship(back_populates="series", cascade_delete=True)
-    chapters: list["Chapter"] = Relationship(back_populates="series", cascade_delete=True)
+    chapters: list["Chapter"] = Relationship(
+        back_populates="series", cascade_delete=True
+    )
 
 
 class SeriesPublic(SeriesBase):
@@ -382,10 +419,21 @@ class BookBase(SQLModel):
         series_id (uuid.UUID): Foreign key to the parent Series.
     """
 
+    external_id: str | None = Field(default=None, index=True)
     title: str = Field(index=True)
-    author: str | None = Field(default=None, index=True)
+    romaji: str | None = Field(default=None, index=True)
+    title_orig: str | None = Field(default=None, index=True)
     description: str | None = None
-    volume: int | None = Field(default=None, index=True)
+    language: LanguageCode | None = None
+    orig_language: LanguageCode | None = None
+    release_date: date | None = None  ## TODO: Standardize date format
+    authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    other_staff: list[dict] | None = Field(default=None, sa_column=Column(JSON))
+    description: str | None = None
+    sort_order: int | None = Field(default=None, index=True)
+    source_url: str | None = None
+    nsfw_img: bool = False
 
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 
@@ -475,16 +523,24 @@ class ReleaseBase(SQLModel):
     Fields:
         url (str): The source URL for the release file.
         format (str | None): The format (e.g., 'EPUB', 'PDF', 'Web').
-        release_date (str | None): The date the release was made available (ISO 8601 string).
+        release_date (date | None): The date the release was made available (ISO 8601 string).
         chapter_id (uuid.UUID | None): Foreign key to the parent Chapter.
         book_id (uuid.UUID | None): Foreign key to the parent Book.
     """
 
-    url: str = Field(index=True)
+    external_id: str | None = Field(default=None, index=True)
+    title: str | None = Field(default=None, index=True)
+    romaji: str | None = Field(default=None, index=True)
+    description: str | None = None
+    url: str | None = Field(
+        default=None, index=True
+    )  # Main link to the release, useful direct link for web releases/chapters
     format: str | None = None
-    release_date: str | None = (
-        None  # ISO 8601 date string # TODO: Check if date type is more appropriate
-    )
+    language: LanguageCode | None = None
+    release_date: date | None = None
+    isbn: str | None = None
+    links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
+    source_url: str | None = None
 
     chapter_id: uuid.UUID | None = Field(
         default=None, foreign_key="chapter.id", ondelete="CASCADE"

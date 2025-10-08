@@ -8,6 +8,7 @@ export type SearchSeriesResponse= {
     language?: string;
     orig_language?: string;
     img_url?: string;
+    nsfw_img: boolean;
 }
 
 export type SeriesGroupsResponse = {
@@ -56,6 +57,8 @@ export interface SeriesSourceResponse {
     demographics?: string[];
     content_tags?: string[];
     books?: Book[];
+    source_url?: string;
+    nsfw_img: boolean;
 }
 
 export interface Series extends SeriesSourceResponse {

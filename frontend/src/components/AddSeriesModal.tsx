@@ -5,7 +5,7 @@ import type {
   SearchSeriesResponse,
   SeriesSourceResponse,
 } from "../api/ApiResponse";
-import { getSeriesFromSource } from "../api/api";
+import { getSeriesFromSource, addSeries } from "../api/api";
 import SeriesInfo from "./SeriesInfo";
 
 function AddSeriesModal({
@@ -36,10 +36,10 @@ function AddSeriesModal({
   return (
     <>
       <Modal opened={open} onClose={onClose} title="Add New Series" size="xl">
-        <SeriesInfo series={item} />
+        <SeriesInfo series={series} />
         <Divider my="md" />
         {/* TODO: Call API to add series. May include other procedures as well. */}
-        <Button fullWidth mt="xl" onClick={() => {alert("Add series"); onClose();}}>
+        <Button fullWidth mt="xl" onClick={() => {addSeries(source, series.external_id); onClose();}}>
           Add Series
         </Button>
       </Modal>

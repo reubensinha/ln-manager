@@ -1,14 +1,11 @@
-from curses import meta
-from math import e
-from sys import version
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from sqlmodel import Session, desc, select
+from sqlmodel import Session, select
 import yaml
 
-from backend.core.database.database import init_db, get_session
+from backend.core.database.database import init_db, engine
 from backend.core.database.models import PluginBase, MetadataPluginTable, IndexerPlugin, DownloadClientPlugin, GenericPlugin
 from backend.plugin_manager import PluginManager, PLUGIN_DIR, plugin_manager
 
@@ -19,8 +16,8 @@ from .api.v1 import core, metadata
 async def lifespan(app: FastAPI):
     # Perform startup tasks
     init_db()
-    
-    with get_session() as session:
+
+    with Session(engine) as session:
         for folder in PLUGIN_DIR.iterdir():
             if not folder.is_dir():
                 continue
