@@ -23,6 +23,8 @@ export type SeriesGroupsResponse = {
   img_url?: string;
   series?: Series[];
   nsfw_img?: boolean;
+  monitored: boolean;
+  download_status: string;
 };
 
 export type Release = {
@@ -76,7 +78,9 @@ export type Book = {
   sort_order?: number;
   source_url?: string;
   nsfw_img: boolean;
-  deleted?: boolean;
+  deleted: boolean;
+  monitored: boolean;
+  downloaded: boolean;
 
   series?: Series;
   series_id?: string;
@@ -116,6 +120,9 @@ export interface SeriesSourceResponse {
 export interface Series extends SeriesSourceResponse {
   id: string;
   plugin: PluginResponse;
+  deleted: boolean;
+  monitored: boolean;
+  download_status: string;
 }
 
 type PluginRoute = {

@@ -65,6 +65,13 @@ class LanguageCode(str, Enum):
     VI = "vi"
 
 
+class DownloadStatus(str, Enum):
+    CONTINUING = "continuing"               ## All english books are downloaded and series is ongoing
+    CONTINUING_orig = "continuing_orig"     ## All books are downloaded and series is ongoing
+    COMPLETED = "completed"                 ## All books are downloaded and series is completed  
+    MISSING = "missing"                     ## Some books are missing
+    NONE = "none"                           ## No books are downloaded
+
 # Create a reusable Literal type that includes None as a valid option
 
 
@@ -314,6 +321,8 @@ class SeriesGroupBase(SQLModel):
     description: str | None = None
     img_url: str | None = None
     nsfw_img: bool = False
+    monitored: bool = True
+    download_status: DownloadStatus = DownloadStatus.NONE
 
 
 class SeriesGroup(SeriesGroupBase, table=True):
@@ -388,12 +397,14 @@ class SeriesBase(SQLModel):
     tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
     demographics: list[str] | None = Field(default=None, sa_column=Column(JSON))
     content_tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
-    language: str | None = None
-    orig_language: str | None = None
+    language: LanguageCode | None = None
+    orig_language: LanguageCode | None = None
     img_url: str | None = None
     source_url: str | None = None
     nsfw_img: bool = False
     deleted: bool = False
+    monitored: bool = True
+    download_status: DownloadStatus = DownloadStatus.NONE
 
     source_id: uuid.UUID | None = Field(
         foreign_key="metadataplugintable.id", ondelete="SET NULL"

@@ -263,5 +263,7 @@ async def fetch_series(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
+    
+    ## TODO: Refresh monitored and download_status fields once system is implemented
 
     return {"success": True, "message": "Series added successfully"}
