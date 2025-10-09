@@ -2,9 +2,10 @@
 export interface CardItem {
   id: string;
   title: string;
-  img_url: string;
+  img_url?: string;
   link?: string;
   in_library?: boolean;
+  nsfw_img?: boolean;
 };
 
 export interface SeriesGroupItem extends CardItem {

@@ -29,8 +29,12 @@ function Series() {
     if (seriesGroup) {
       getSeriesById(seriesGroup.series[0].id).then((data) => {
         const booksWithLinks = data?.books?.map((item) => ({
-          ...item,
+          id: item.id,
+          title: item.title,
+          img_url: item.img_path,
           link: `/book/${item.id}`,
+          in_library: true,
+          nsfw_img: item.nsfw_img,
         })) ?? [];
         setSeries(data);
         setBooks(booksWithLinks);
