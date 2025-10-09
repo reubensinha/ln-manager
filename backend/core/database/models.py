@@ -11,6 +11,7 @@ from sqlmodel import Column, JSON
 # if TYPE_CHECKING:
 #     from .plugins import MetadataPlugin, MetadataPluginPublic
 
+
 class LanguageCode(str, Enum):
     JA = "ja"
     EN = "en"
@@ -62,6 +63,8 @@ class LanguageCode(str, Enum):
     UK = "uk"
     UR = "ur"
     VI = "vi"
+
+
 # Create a reusable Literal type that includes None as a valid option
 
 
@@ -212,9 +215,7 @@ class SeriesDetailsResponse(SQLModel):
     orig_language: LanguageCode | None = None
     img_url: str | None = None
     publishing_status: PublishingStatus | None = None
-    external_links: list[dict] | None = Field(
-        default=None, sa_column=Column(JSON)
-    )
+    external_links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     start_date: date | None = None
     end_date: date | None = None  ## TODO: Standardize date format
     publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
@@ -285,6 +286,19 @@ class CollectionPublic(CollectionBase):
     series_groups: list["SeriesGroupPublic"] = []
 
 
+class CollectionPublicSimple(CollectionBase):
+    """Collection without nested series groups"""
+
+    id: uuid.UUID
+
+
+class CollectionPublicWithGroups(CollectionBase):
+    """Collection with series groups (no back-references)"""
+
+    id: uuid.UUID
+    series_groups: list["SeriesGroupPublicSimple"] = []
+
+
 class SeriesGroupBase(SQLModel):
     """
     Base class for the canonical identifier of an intellectual property.
@@ -316,6 +330,12 @@ class SeriesGroup(SeriesGroupBase, table=True):
     series: list["Series"] = Relationship(back_populates="group")
 
 
+class SeriesGroupPublicSimple(SeriesGroupBase):
+    """SeriesGroup without nested series"""
+
+    id: uuid.UUID
+
+
 class SeriesGroupPublic(SeriesGroupBase):
     """
     Public API representation of the canonical SeriesGroup.
@@ -324,6 +344,13 @@ class SeriesGroupPublic(SeriesGroupBase):
     id: uuid.UUID
     collections: list["CollectionPublic"] = []
     series: list["SeriesPublic"] = []
+
+
+class SeriesGroupPublicWithSeries(SeriesGroupBase):
+    """SeriesGroup with its series list (no back-reference to collections)"""
+
+    id: uuid.UUID
+    series: list["SeriesPublicSimple"] = []
 
 
 class SeriesBase(SQLModel):
@@ -347,9 +374,7 @@ class SeriesBase(SQLModel):
     aliases: list[str] | None = Field(default=None, sa_column=Column(JSON))
     description: str | None = None
     publishing_status: PublishingStatus | None = None
-    external_links: list[dict] | None = Field(
-        default=None, sa_column=Column(JSON)
-    )
+    external_links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     start_date: date | None = None
     end_date: date | None = None  ## TODO: Standardize date format
     publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
@@ -407,6 +432,23 @@ class SeriesPublic(SeriesBase):
     group: SeriesGroupPublic | None = None
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
+
+
+class SeriesPublicSimple(SeriesBase):
+    """Series WITHOUT nested books/chapters (breaks recursion)"""
+
+    id: uuid.UUID
+    source: MetadataPluginTable | None = None
+    group_id: uuid.UUID | None = None  # Just the ID, not the full object
+
+
+class SeriesPublicWithBooks(SeriesBase):
+    """Series WITH books but WITHOUT back-reference to group"""
+
+    id: uuid.UUID
+    source: MetadataPluginTable | None = None
+    books: list["BookPublicSimple"] = []
+    chapters: list["ChapterPublicSimple"] = []
 
 
 # TODO: Make volume field decimal
@@ -468,6 +510,20 @@ class BookPublic(BookBase):
     releases: list["ReleasePublic"] = []
 
 
+class BookPublicSimple(BookBase):
+    """Book WITHOUT back-reference to series"""
+
+    id: uuid.UUID
+    releases: list["ReleasePublicSimple"] = []
+
+
+class BookPublicWithReleases(BookBase):
+    """Book with releases but no back-reference to series"""
+
+    id: uuid.UUID
+    releases: list["ReleasePublicSimple"] = []
+
+
 # TODO: Make number and volume field decimal
 class ChapterBase(SQLModel):
     """
@@ -518,6 +574,13 @@ class ChapterPublic(ChapterBase):
     series: SeriesPublic
 
     releases: list["ReleasePublic"] = []
+
+
+class ChapterPublicSimple(ChapterBase):
+    """Chapter WITHOUT back-reference to series"""
+
+    id: uuid.UUID
+    releases: list["ReleasePublicSimple"] = []
 
 
 class ReleaseBase(SQLModel):
@@ -579,3 +642,11 @@ class ReleasePublic(ReleaseBase):
     id: uuid.UUID
     chapter: ChapterPublic | None = None
     book: BookPublic | None = None
+
+
+class ReleasePublicSimple(ReleaseBase):
+    """Release WITHOUT back-references to chapter/book"""
+
+    id: uuid.UUID
+    chapter_id: uuid.UUID | None = None
+    book_id: uuid.UUID | None = None
