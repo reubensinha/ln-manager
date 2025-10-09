@@ -55,8 +55,6 @@ async def fetch_series(
     request: AddSeriesRequest,
     session: Session = Depends(get_session),
 ):
-    #  TODO: Update add to Database Fields.
-
     # ----- Lookup Plugin -----
     plugin = plugin_manager.get_plugin(request.source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
@@ -71,21 +69,7 @@ async def fetch_series(
         )
 
     try:
-        # ----- Handle Series Group -----
-        if request.series_group:
-            group = session.get(SeriesGroup, uuid.UUID(request.series_group))
-            if not group:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Series group {request.series_group} not found",
-                )
-
-        else:
-            group = SeriesGroup(title=data.series.title)
-            session.add(group)
-            session.flush()  # To get the ID of the new group
-
-        # ----- Lookup Plugin in Database -----
+        # ----- Lookup Plugin in Database (do this once) -----
         db_plugin = session.exec(
             select(MetadataPluginTable).where(
                 MetadataPluginTable.name == request.source
@@ -97,7 +81,7 @@ async def fetch_series(
                 detail=f"Metadata source {request.source} not found in database",
             )
 
-        # ----- Add or Update Series -----
+        # ----- Check if Series Already Exists -----
         existing_series = session.exec(
             select(Series).where(
                 Series.source_id == db_plugin.id,
@@ -105,6 +89,40 @@ async def fetch_series(
             )
         ).first()
 
+        # ----- Handle Series Group -----
+        if request.series_group:
+            # User explicitly specified a group - just use it, don't modify it
+            group = session.get(SeriesGroup, uuid.UUID(request.series_group))
+            if not group:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Series group {request.series_group} not found",
+                )
+        else:
+            # No group specified - determine group based on existing series
+            if existing_series and existing_series.group_id and existing_series.group:
+                # Series exists and has a group - use that group
+                group = existing_series.group
+                
+                # Only update group if this series is the main series
+                if str(group.main_series_id) == str(existing_series.id):
+                    group.title = data.series.title
+                    group.description = data.series.description
+                    group.img_url = data.series.img_url
+                    group.nsfw_img = data.series.nsfw_img
+            else:
+                # Series doesn't exist or has no group - create new group
+                group = SeriesGroup(
+                    title=data.series.title,
+                    description=data.series.description,
+                    img_url=data.series.img_url,
+                    nsfw_img=data.series.nsfw_img,
+                    main_series_id=""  # Will be set after series is created
+                )
+                session.add(group)
+                session.flush()  # Get the group ID
+
+        # ----- Add or Update Series -----
         if existing_series:
             # Update existing series
             for key, value in data.series.model_dump(
@@ -112,19 +130,31 @@ async def fetch_series(
             ).items():
                 setattr(existing_series, key, value)
             existing_series.deleted = False
-            
-            # Update group if explicitly requested
+
+            # Update group_id if explicitly requested
             if request.series_group:
                 existing_series.group_id = uuid.UUID(request.series_group)
             # else: keep existing group_id
-            
+
             series_obj = existing_series
+            
+            # Update group if this is the main series (and no explicit group requested)
+            if not request.series_group and series_obj.group and str(series_obj.group.main_series_id) == str(series_obj.id):
+                series_obj.group.title = data.series.title
+                series_obj.group.description = data.series.description
+                series_obj.group.img_url = data.series.img_url
+                series_obj.group.nsfw_img = data.series.nsfw_img
         else:
             # Create new series
             series_obj = Series.model_validate(
                 data.series, update={"source_id": db_plugin.id, "group_id": group.id}
             )
             session.add(series_obj)
+            session.flush()
+            
+            # Set this as the main series if we created a new group
+            if not request.series_group and not group.main_series_id:
+                group.main_series_id = str(series_obj.id)
 
         session.flush()
 
@@ -174,7 +204,6 @@ async def fetch_series(
 
         # ----- Add Chapters -----
         for chapter_model in data.chapters:
-
             exisiting_chapter = session.exec(
                 select(Chapter).where(
                     Chapter.series_id == series_obj.id,
@@ -218,7 +247,9 @@ async def fetch_series(
                     session.add(release_obj)
 
         # ----- Mark Missing Books as Deleted -----
-        fetched_book_external_ids = {b.book.external_id for b in data.books if b.book.external_id}
+        fetched_book_external_ids = {
+            b.book.external_id for b in data.books if b.book.external_id
+        }
         existing_books = session.exec(
             select(Book).where(Book.series_id == series_obj.id)
         ).all()
@@ -226,12 +257,11 @@ async def fetch_series(
         for existing_book in existing_books:
             if existing_book.external_id not in fetched_book_external_ids:
                 existing_book.deleted = True
-        
+
         session.commit()
         session.refresh(series_obj)
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
 
-    # series_public = SeriesPublic.model_validate(series_obj)
     return {"success": True, "message": "Series added successfully"}

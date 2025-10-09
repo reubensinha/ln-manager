@@ -3,16 +3,20 @@ import { SimpleGrid } from "@mantine/core";
 
 import { getSeriesGroups } from "../api/api";
 import ItemCard from "../components/ItemCard/ItemCard";
-import { type SeriesGroupItem } from "../types/CardItems";
+import { type CardItem } from "../types/CardItems";
 
 function Library() {
-  const [series, setSeries] = useState<SeriesGroupItem[]>([]);
+  const [series, setSeries] = useState<CardItem[]>([]);
 
   useEffect(() => {
     getSeriesGroups().then((data) => {
       const seriesGroupsWithLinks = data.map((item) => ({
-        ...item,
+        id: item.id,
+        title: item.title,
+        img_url: item.img_url,
         link: `/series/${item.id}`,
+        in_library: true,
+        nsfw_img: item.nsfw_img,
       }));
       setSeries(seriesGroupsWithLinks);
     });

@@ -6,7 +6,7 @@ import { getBookByID } from "../api/api";
 import BookInfo from "../components/BookInfo";
 import { type Book } from "../api/ApiResponse";
 
-function Book() {
+function BookPage() {
   const { bookID } = useParams<{ bookID: string }>();
   const [book, setBook] = useState<Book | null>(null);
 
@@ -31,4 +31,4 @@ function Book() {
   );
 }
 
-export default Book;
+export default BookPage;

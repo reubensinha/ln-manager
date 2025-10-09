@@ -1,7 +1,7 @@
 // TODO: Implement API calls when backend is ready.
 import axios from 'axios';
 import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse } from './ApiResponse';
-import type { Series } from '../api/ApiResponse';
+import type { Book, Series } from '../api/ApiResponse';
 
 
 // Get the current protocol and hostname from the browser's address bar
@@ -40,134 +40,47 @@ export async function addSeries(source: string, external_id: string, series_grou
 
 export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
   // Placeholder function to simulate fetching series groups from an API
-  return [
-    {
-      id: "1",
-      title: "Series Group 1",
-      img_url: "/test_img/32510.jpg",
-      series: [
-        {
-          id: "1",
-          source: "ranobeDB",
-        },
-        {
-          id: "2",
-          source: "MAL",
-        },
-      ],
-    },
-    {
-      id: "2",
-      title: "Series Group 2",
-      img_url: "/test_img/32510.jpg",
-      series: [
-        {
-          id: "3",
-          source: "ranobeDB",
-        },
-        {
-          id: "4",
-          source: "MAL",
-        },
-      ],
-    },
-  ];
-}
-
-export async function getSeriesGroupById(id: string) {
-  // Placeholder function to simulate fetching series groups from an API
-
-  if (id === "1") {
-    return {
-      id: "1",
-      title: "Series Group 1",
-      img_url: "/test_img/32510.jpg",
-      series: [
-        {
-          id: "1",
-          source: "ranobeDB",
-        },
-        {
-          id: "2",
-          source: "MAL",
-        },
-      ],
-    };
-  } else {
-    return {
-      id: "2",
-      title: "Series Group 2",
-      img_url: "/test_img/32510.jpg",
-      series: [
-        {
-          id: "3",
-          source: "ranobeDB",
-        },
-        {
-          id: "4",
-          source: "MAL",
-        },
-      ],
-    };
+  try {
+    const response = await api.get(`/series-groups`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching series groups:", error);
+    return [];
   }
 }
 
-export async function getSeries() {
+
+export async function getSeriesGroupById(id: string): Promise<SeriesGroupsResponse | null> {
+  // Placeholder function to simulate fetching series groups from an API
+  try {
+    const response = await api.get(`/series-groups/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching series group by ID:", error);
+    return null;
+  }
+}
+
+export async function getSeries() : Promise<Series[]> {
   // Placeholder function to simulate fetching series data from an API
-  return [
-    {
-      id: "1",
-      title: "Series 1",
-      description: "Description of Series 1",
-      img_url: "/test_img/32510.jpg",
-    },
-    {
-      id: "2",
-      title: "Series 2",
-      description: "Description of Series 2",
-      img_url: "/test_img/32510.jpg",
-    },
-    {
-      id: "3",
-      title: "Series 3",
-      description: "Description of Series 3",
-      img_url: "/test_img/32510.jpg",
-    },
-    {
-      id: "4",
-      title: "Series 4",
-      description: "Description of Series 4",
-      img_url: "/test_img/32510.jpg",
-    },
-  ];
+  try {
+    const response = await api.get(`/series`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching series:", error);
+    return [];
+  }
 }
 
 export async function getSeriesById(id: string): Promise<Series | null> {
   // Placeholder function to simulate fetching a single series by ID from an API
-  return {
-    id,
-    external_id: `ext-${id}`,
-    title: `Series ${id}`,
-    description: `Description of Series ${id}`,
-    img_url: "/test_img/32510.jpg",
-    books: [
-      {
-        id: "1",
-        title: "Book 1",
-        description: "Description of Book 1",
-        img_path: "/test_img/32510.jpg",
-        nsfw_img: false,
-      },
-      {
-        id: "2",
-        title: "Book 2",
-        description: "Description of Book 2",
-        img_path: "/test_img/32510.jpg",
-        nsfw_img: false,
-      },
-    ],
-    nsfw_img: false,
-  };
+  try {
+    const response = await api.get(`/series/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching series by ID:", error);
+    return null;
+  }
 }
 
 export async function getSeriesFromSource(source: string, external_id: string): Promise<SeriesSourceResponse | null> {
@@ -183,15 +96,15 @@ export async function getSeriesFromSource(source: string, external_id: string): 
   } 
 }
 
-export async function getBookByID(id: string) {
+export async function getBookByID(id: string): Promise<Book | null> {
   // Placeholder function to simulate fetching a single book by ID from an API
-  return {
-    id,
-    title: `Book ${id}`,
-    description: `Description of Book ${id}`,
-    img_path: "/test_img/32510.jpg",
-    nsfw_img: false,
-  };
+  try {
+    const response = await api.get(`/books/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching book by ID:", error);
+    return null;
+  }
 }
 
 export async function getPlugins(): Promise<PluginResponse[]> {

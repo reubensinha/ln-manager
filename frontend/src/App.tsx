@@ -14,8 +14,8 @@ import Layout from "./components/Layout/Layout.tsx";
 import NothingFoundBackground from "./notfound/notfound.tsx";
 
 import Library from "./pages/Library.tsx";
-import Series from "./pages/Series.tsx";
-import Book from "./pages/Book.tsx";
+import SeriesPage from "./pages/SeriesPage.tsx";
+import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
 // import Vite from "./Vite.tsx";
 
@@ -30,8 +30,8 @@ function App() {
             <Routes>
               {/* Core Routes */}
               <Route path="/" element={<Library />} />
-              <Route path="/series/:groupID" element={<Series />} />
-              <Route path="/book/:bookID" element={<Book />} />
+              <Route path="/series/:groupID" element={<SeriesPage />} />
+              <Route path="/book/:bookID" element={<BookPage />} />
               <Route path="/search/:source" element={<Search />} />
               <Route path="/search/:source/:query" element={<Search />} />
               <Route path="*" element={<NothingFoundBackground />} />

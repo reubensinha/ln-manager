@@ -15,11 +15,14 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
       <Stack style={{ flex: 1 }}>
         <Title order={1}>{series.title}</Title>
 
-        {/* TODO: Placeholder links */}
+        {/* TODO: Placeholder Tags */}
         <Group>
-          <Badge color="gray">/storage/drop/anime</Badge>
+          {series.tags?.map((tag) => (
+            <Badge color="gray">{tag}</Badge>
+          ))}
+          {/* <Badge color="gray">/storage/drop/anime</Badge>
           <Badge color="green">Japanese</Badge>
-          <Badge color="yellow">AT-X</Badge>
+          <Badge color="yellow">AT-X</Badge> */}
         </Group>
 
         {/* Description */}

@@ -7,8 +7,3 @@ export interface CardItem {
   in_library?: boolean;
   nsfw_img?: boolean;
 };
-
-export interface SeriesGroupItem extends CardItem {
-  series: { id: string; source: string }[];
-}
-

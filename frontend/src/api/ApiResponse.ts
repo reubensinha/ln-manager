@@ -18,11 +18,11 @@ export type SearchSeriesResponse = {
 export type SeriesGroupsResponse = {
   id: string;
   title: string;
-  img_url: string;
-  series: {
-    id: string;
-    source: string;
-  }[];
+  main_series_id: string;
+  description?: string;
+  img_url?: string;
+  series?: Series[];
+  nsfw_img?: boolean;
 };
 
 export type Release = {
@@ -66,7 +66,7 @@ export type Book = {
   romaji?: string;
   title_orig?: string;
   description?: string;
-  img_path?: string;
+  img_url?: string;
   language?: string;
   orig_language?: string;
   release_date?: string; // ISO 8601 date string (YYYY-MM-DD).
@@ -115,6 +115,7 @@ export interface SeriesSourceResponse {
 
 export interface Series extends SeriesSourceResponse {
   id: string;
+  plugin: PluginResponse;
 }
 
 type PluginRoute = {

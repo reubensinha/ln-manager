@@ -189,7 +189,7 @@ class RanobeDBPlugin(MetadataPlugin):
         return SeriesDetailsResponse(
             external_id=str(series.get("id")),
             title=self._determine_title(series.get("lang") or "", series),
-            romaji=series.get("romaji"),
+            romaji=series.get("romaji") or series.get("romaji_orig"),
             title_orig=series.get("title_orig"),
             aliases=(
                 series.get("aliases", "").split("\n") if series.get("aliases") else []
@@ -231,7 +231,7 @@ class RanobeDBPlugin(MetadataPlugin):
         if not series_details:
             return None
 
-        ## TODO: Save image locally and set img_path accordingly
+        ## TODO: Save image locally and set img_url accordingly
         authors = [
             s.get("name")
             for s in series_details.get("staff", [])
@@ -312,14 +312,16 @@ class RanobeDBPlugin(MetadataPlugin):
             title=self._determine_title(
                 series_details.get("lang") or "", series_details
             ),
-            romaji=series_details.get("romaji"),
+            romaji=series_details.get("romaji") or series_details.get("romaji_orig"),
             title_orig=series_details.get("title_orig"),
             aliases=(
                 series_details.get("aliases", "").split("\n")
                 if series_details.get("aliases")
                 else []
             ),
-            description=series_details.get("description"),
+            description=series_details.get("description")
+            or series_details.get("book_description", {}).get("description")
+            or series_details.get("book_description", {}).get("description_ja"),
             language=series_details.get("lang"),
             orig_language=series_details.get("olang"),
             publishing_status=series_details.get("publication_status"),
@@ -338,7 +340,7 @@ class RanobeDBPlugin(MetadataPlugin):
             tags=tags,
             demographics=demographics,
             content_tags=content_tags,
-            img_path=f"{self._base_img_url}/{img_filename}" if img_filename else None,
+            img_url=f"{self._base_img_url}/{img_filename}" if img_filename else None,
             source_url=f"https://ranobedb.org/series/{external_id}",
             nsfw_img=nsfw_img,
             source_id=None,  # Will be set by the caller
@@ -405,7 +407,7 @@ class RanobeDBPlugin(MetadataPlugin):
                 title_orig=book_detail.get("title_orig"),
                 description=book_detail.get("description")
                 or series_details.get("description_ja"),
-                img_path=(
+                img_url=(
                     f"{self._base_img_url}/{img_filename}" if img_filename else None
                 ),
                 authors=authors,

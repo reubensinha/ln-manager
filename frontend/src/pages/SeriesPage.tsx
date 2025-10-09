@@ -5,15 +5,14 @@ import { useParams } from "react-router";
 import { getSeriesById, getSeriesGroupById } from "../api/api";
 import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
-import {
-  type SeriesGroupItem,
-  type CardItem,
-} from "../types/CardItems";
-import { type Series } from "../api/ApiResponse";
+import { type CardItem } from "../types/CardItems";
+import type { Series, SeriesGroupsResponse } from "../api/ApiResponse";
 
-function Series() {
+function SeriesPage() {
   const { groupID } = useParams<{ groupID: string }>();
-  const [seriesGroup, setSeriesGroup] = useState<SeriesGroupItem | null>(null);
+  const [seriesGroup, setSeriesGroup] = useState<SeriesGroupsResponse | null>(
+    null
+  );
   const [series, setSeries] = useState<Series | null>(null);
   const [books, setBooks] = useState<CardItem[]>([]);
 
@@ -27,15 +26,16 @@ function Series() {
 
   useEffect(() => {
     if (seriesGroup) {
-      getSeriesById(seriesGroup.series[0].id).then((data) => {
-        const booksWithLinks = data?.books?.map((item) => ({
-          id: item.id,
-          title: item.title,
-          img_url: item.img_path,
-          link: `/book/${item.id}`,
-          in_library: true,
-          nsfw_img: item.nsfw_img,
-        })) ?? [];
+      getSeriesById(seriesGroup.main_series_id).then((data) => {
+        const booksWithLinks =
+          data?.books?.map((item) => ({
+            id: item.id,
+            title: item.title,
+            img_url: item.img_url,
+            link: `/book/${item.id}`,
+            in_library: true,
+            nsfw_img: item.nsfw_img,
+          })) ?? [];
         setSeries(data);
         setBooks(booksWithLinks);
       });
@@ -44,10 +44,15 @@ function Series() {
 
   const handleTabChange = (seriesId: string) => {
     getSeriesById(seriesId).then((data) => {
-      const booksWithLinks = data?.books?.map((item) => ({
-        ...item,
-        link: `/book/${item.id}`,
-      })) ?? [];
+      const booksWithLinks =
+        data?.books?.map((item) => ({
+          id: item.id,
+          title: item.title,
+          img_url: item.img_url,
+          link: `/book/${item.id}`,
+          in_library: true,
+          nsfw_img: item.nsfw_img,
+        })) ?? [];
       setSeries(data);
       setBooks(booksWithLinks);
     });
@@ -64,13 +69,13 @@ function Series() {
   return (
     <>
       <Tabs
-        defaultValue={seriesGroup.series[0].id}
+        defaultValue={seriesGroup.main_series_id}
         onChange={(value) => handleTabChange(value ?? "")}
       >
         <Tabs.List mb={"md"}>
-          {seriesGroup.series.map((seriesItem) => (
+          {seriesGroup.series?.map((seriesItem) => (
             <Tabs.Tab key={seriesItem.id} value={seriesItem.id}>
-              {seriesItem.source}
+              {seriesItem.plugin.name}
             </Tabs.Tab>
           ))}
         </Tabs.List>
@@ -93,4 +98,4 @@ function Series() {
   );
 }
 
-export default Series;
+export default SeriesPage;

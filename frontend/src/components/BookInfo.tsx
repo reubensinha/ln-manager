@@ -5,7 +5,7 @@ function BookInfo({ book }: { book: Book }) {
   return (
     <Group align="flex-start">
       <Image
-        src={book.img_path}
+        src={book.img_url}
         alt={book.title}
         style={{ maxWidth: 250, borderRadius: 8 }}
         fit="contain"

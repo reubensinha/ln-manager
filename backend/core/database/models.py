@@ -310,7 +310,10 @@ class SeriesGroupBase(SQLModel):
     """
 
     title: str = Field(index=True)
+    main_series_id: str
     description: str | None = None
+    img_url: str | None = None
+    nsfw_img: bool = False
 
 
 class SeriesGroup(SeriesGroupBase, table=True):
@@ -387,7 +390,7 @@ class SeriesBase(SQLModel):
     content_tags: list[str] | None = Field(default=None, sa_column=Column(JSON))
     language: str | None = None
     orig_language: str | None = None
-    img_path: str | None = None
+    img_url: str | None = None
     source_url: str | None = None
     nsfw_img: bool = False
     deleted: bool = False
@@ -428,7 +431,7 @@ class SeriesPublic(SeriesBase):
     """
 
     id: uuid.UUID
-    source: MetadataPluginTable | None = None
+    plugin: MetadataPluginTable | None = None
     group: SeriesGroupPublic | None = None
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
@@ -438,7 +441,7 @@ class SeriesPublicSimple(SeriesBase):
     """Series WITHOUT nested books/chapters (breaks recursion)"""
 
     id: uuid.UUID
-    source: MetadataPluginTable | None = None
+    plugin: MetadataPluginTable | None = None
     group_id: uuid.UUID | None = None  # Just the ID, not the full object
 
 
@@ -446,7 +449,7 @@ class SeriesPublicWithBooks(SeriesBase):
     """Series WITH books but WITHOUT back-reference to group"""
 
     id: uuid.UUID
-    source: MetadataPluginTable | None = None
+    plugin: MetadataPluginTable | None = None
     books: list["BookPublicSimple"] = []
     chapters: list["ChapterPublicSimple"] = []
 
@@ -469,7 +472,7 @@ class BookBase(SQLModel):
     romaji: str | None = Field(default=None, index=True)
     title_orig: str | None = Field(default=None, index=True)
     description: str | None = None
-    img_path: str | None = None
+    img_url: str | None = None
     language: LanguageCode | None = None
     orig_language: LanguageCode | None = None
     release_date: date | None = None  ## TODO: Standardize date format
