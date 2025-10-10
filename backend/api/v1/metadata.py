@@ -3,7 +3,6 @@ from urllib.parse import unquote
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from sqlmodel import SQLModel, Session, select
-import logging
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.plugin_manager import plugin_manager
@@ -14,9 +13,6 @@ from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 
 router = APIRouter()
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 class AddSeriesRequest(SQLModel):
     source: str
@@ -294,11 +290,6 @@ async def get_image(source: str, filepath: str, request: Request):
     decoded_filepath = unquote(filepath)
     
     img_path = plugin_dir / decoded_filepath
-    
-    logger.info(f"[DEBUG] Looking for image at: {img_path}")
-    logger.info(f"[DEBUG] Image exists: {img_path.exists()}")
-    logger.info(f"[DEBUG] Plugin dir: {plugin_dir}")
-    logger.info(f"Is file: {img_path.is_file() if img_path.exists() else 'N/A'}")
 
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
