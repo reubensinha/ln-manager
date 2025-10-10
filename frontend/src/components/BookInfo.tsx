@@ -1,36 +1,191 @@
-import { Group, Text, Title, Image, Stack, Badge } from "@mantine/core";
+import {
+  Group,
+  Text,
+  Title,
+  Image,
+  Stack,
+  Badge,
+  Box,
+  Center,
+  Divider,
+} from "@mantine/core";
+import { TbEyeOff } from "react-icons/tb";
 import type { Book } from "../api/ApiResponse";
+import { useState } from "react";
+
+const BLUR_NSFW: boolean = true;
 
 function BookInfo({ book }: { book: Book }) {
+  const [showNsfw, setShowNsfw] = useState(false);
+  const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
   return (
-    <Group align="flex-start">
-      <Image
-        src={book.img_url}
-        alt={book.title}
-        style={{ maxWidth: 250, borderRadius: 8 }}
-        fit="contain"
-        // mb="xl"
-      />
+    <Stack style={{ flex: 1 }}>
+      <Group align="flex-start" gap="xl">
+        <Box style={{ position: "relative", width: 250, flexShrink: 0 }}>
+          <Image
+            src={book.img_url}
+            alt={book.title}
+            style={{
+              maxWidth: 250,
+              borderRadius: 8,
+              filter: shouldBlur ? "blur(20px)" : "none",
+              transition: "filter 0.3s ease",
+            }}
+            fit="contain"
+            h={350}
+          />
+          {shouldBlur && (
+            <Box
+              onClick={() => setShowNsfw(true)}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                borderRadius: 8,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background-color 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
+              }}
+            >
+              <Center>
+                <Stack align="center" gap="xs">
+                  <TbEyeOff size={48} color="white" />
+                  <Text c="white" fw={600} size="sm">
+                    NSFW Content
+                  </Text>
+                  <Text c="white" size="xs" opacity={0.8}>
+                    Click to reveal
+                  </Text>
+                </Stack>
+              </Center>
+            </Box>
+          )}
+        </Box>
 
-      <Stack style={{ flex: 1 }}>
-        <Title order={1}>{book.title}</Title>
+        {/* Main Content */}
+        <Stack style={{ flex: 1, minWidth: 0 }} gap="md">
+          {/* Titles */}
+          <Stack gap={4}>
+            <Title order={1} style={{ lineHeight: 1.2 }}>
+              {book.title}
+            </Title>
 
-        {/* TODO: Placeholder links */}
-        <Group>
-          <Badge color="gray">/storage/drop/anime</Badge>
-          <Badge color="green">Japanese</Badge>
-          <Badge color="yellow">AT-X</Badge>
-        </Group>
+            {book.romaji && (
+              <Text size="lg" c="dimmed" fw={500}>
+                {book.romaji}
+              </Text>
+            )}
+            {book.title_orig && (
+              <Text size="sm" c="dimmed" fs="italic">
+                {book.title_orig}
+              </Text>
+            )}
+          </Stack>
 
-        {/* Description */}
-        <Text size="sm">{book.description}</Text>
+          {/* Publishing Status and Dates */}
+          <Group gap="md" wrap="wrap">
+            {book.release_date && (
+              <Badge>
+                {book.release_date}
+              </Badge>
+            )}
+          </Group>
 
-        {/* TODO:Placeholder footer */}
-        <Text size="xs" color="dimmed">
-          Metadata is provided by TheTVDB
-        </Text>
-      </Stack>
-    </Group>
+          {/* Series Statistics */}
+          {(book.language || book.orig_language) && (
+            <Group gap="lg" wrap="wrap">
+              {book.language && (
+                <Group gap={6}>
+                  <Text size="sm" c="dimmed">
+                    Language:
+                  </Text>
+                  <Text size="sm" fw={600} tt="uppercase">
+                    {book.language}
+                  </Text>
+                </Group>
+              )}
+              {book.orig_language && book.orig_language !== book.language && (
+                <Group gap={6}>
+                  <Text size="sm" c="dimmed">
+                    Original:
+                  </Text>
+                  <Text size="sm" fw={600} tt="uppercase">
+                    {book.orig_language}
+                  </Text>
+                </Group>
+              )}
+            </Group>
+          )}
+
+          {/* Authors, Artists, Other Staff */}
+          {(book.authors || book.artists || book.other_staff) && (
+            <Stack gap="sm" style={{ minWidth: 250, maxWidth: 350 }}>
+              <Text size="sm" fw={600} c="dimmed">
+                Staff
+              </Text>
+              <Stack gap="sm">
+                {book.authors?.map((author) => (
+                  <Group key={author} gap="sm" wrap="nowrap">
+                    <Badge size="sm" variant="dot" color="violet" w={80}>
+                      Author
+                    </Badge>
+                    <Text size="sm" fw={500} style={{ flex: 1 }}>
+                      {author}
+                    </Text>
+                  </Group>
+                ))}
+                {book.artists?.map((artist) => (
+                  <Group key={artist} gap="sm" wrap="nowrap">
+                    <Badge size="sm" variant="dot" color="pink" w={80}>
+                      Artist
+                    </Badge>
+                    <Text size="sm" fw={500} style={{ flex: 1 }}>
+                      {artist}
+                    </Text>
+                  </Group>
+                ))}
+                {book.other_staff?.map((staff) => (
+                  <Group key={staff.name} gap="sm" wrap="nowrap">
+                    <Badge size="sm" variant="dot" color="cyan" w={80}>
+                      {staff.role}
+                    </Badge>
+                    <Text size="sm" fw={500} style={{ flex: 1 }}>
+                      {staff.name}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            </Stack>
+          )}
+        </Stack>
+      </Group>
+
+      {/* Description */}
+      {book.description && (
+        <>
+          <Divider />
+          <Box>
+            <Text size="sm" fw={600} c="dimmed" mb="sm">
+              Synopsis
+            </Text>
+            <Text size="sm" style={{ lineHeight: 1.8 }}>
+              {book.description}
+            </Text>
+          </Box>
+        </>
+      )}
+    </Stack>
   );
 }
 

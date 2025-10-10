@@ -82,7 +82,6 @@ export type Book = {
   monitored: boolean;
   downloaded: boolean;
 
-  series?: Series;
   series_id?: string;
   releases?: Release[];
 };
@@ -94,8 +93,6 @@ export interface SeriesSourceResponse {
   title_orig?: string;
   aliases?: string[];
   description?: string;
-  volumes?: number;
-  chapters?: number;
   language?: string;
   orig_language?: string;
   img_url?: string;
@@ -115,6 +112,7 @@ export interface SeriesSourceResponse {
   nsfw_img: boolean;
   deleted?: boolean;
   books?: Book[];
+  chapters?: Chapter[];
 }
 
 export interface Series extends SeriesSourceResponse {
