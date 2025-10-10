@@ -1,4 +1,3 @@
-# TODO: Implement the actual logic for the RanobeDB plugin.
 from datetime import date, datetime
 from uuid import UUID, uuid4
 from backend.core.database.models import (

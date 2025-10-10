@@ -465,7 +465,6 @@ class SeriesPublicWithBooks(SeriesBase):
     chapters: list["ChapterPublicSimple"] = []
 
 
-# TODO: Make volume field decimal
 class BookBase(SQLModel):
     """
     Base class for a major volume or collection within a Series.
@@ -538,7 +537,6 @@ class BookPublicWithReleases(BookBase):
     releases: list["ReleasePublicSimple"] = []
 
 
-# TODO: Make number and volume field decimal
 class ChapterBase(SQLModel):
     """
     Base class for a single chapter or segment of content within a Series.

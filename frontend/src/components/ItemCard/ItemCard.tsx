@@ -5,8 +5,6 @@ import { type CardItem } from "../../types/CardItems";
 
 const stripColor = "red";
 
-// TODO: If CardItem link != null then link to it else if Series, link to /series/:id if Book, link to /book/:id, else link to nothing.
-
 function ItemCard({ item }: { item: CardItem }) {
   const link = item.link ?? "#";
   const inLibrary = item.in_library ?? true;

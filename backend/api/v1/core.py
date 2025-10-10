@@ -1,8 +1,7 @@
 # TODO: Implement actual logic for these endpoints
 
-from unittest import result
 from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import SQLModel, create_engine, Session, select
+from sqlmodel import Session, select
 from uuid import UUID
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin

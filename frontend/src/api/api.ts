@@ -1,4 +1,3 @@
-// TODO: Implement API calls when backend is ready.
 import axios from 'axios';
 import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse } from './ApiResponse';
 import type { Book, Series } from '../api/ApiResponse';
