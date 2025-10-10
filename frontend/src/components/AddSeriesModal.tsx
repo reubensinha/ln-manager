@@ -38,7 +38,7 @@ function AddSeriesModal({
       <Modal opened={open} onClose={onClose} title="Add New Series" size="xl">
         <SeriesInfo series={series} />
         <Divider my="md" />
-        {/* TODO: Call API to add series. May include other procedures as well. */}
+        {/* TODO: Call API After API call do other procedures that are required as well. */}
         <Button fullWidth mt="xl" onClick={() => {addSeries(source, series.external_id); onClose();}}>
           Add Series
         </Button>

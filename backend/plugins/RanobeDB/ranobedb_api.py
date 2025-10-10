@@ -1,3 +1,4 @@
+from anyio import Path
 import httpx
 from typing import Any
 from .rate_limiter import async_rate_limit_pause
@@ -16,6 +17,27 @@ async def get_image(filename: str) -> bytes:
         img_response = await client.get(img_url, timeout=30)
         img_response.raise_for_status()
         return img_response.content
+
+
+async def download_image(filename: str, dest_path: Path) -> str |None:
+    """
+    Download an image from RanobeDB and save it to the specified path.
+
+    Args:
+        filename (str): Image filename on RanobeDB.
+        dest_path (Path): Local file path to save the image.
+    """
+    try:
+        await dest_path.mkdir(parents=True, exist_ok=True)
+        img_data = await get_image(filename)
+        
+        file_path = dest_path / filename
+        await file_path.write_bytes(img_data)
+
+        return str(file_path)
+    except Exception as e:
+        print(f"Error downloading image {filename}: {e}")
+        return None
 
 
 @async_rate_limit_pause

@@ -1,5 +1,8 @@
 from datetime import date, datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
+from urllib.parse import quote
+
+from anyio import Path
 from backend.core.database.models import (
     ReleaseBase,
     SeriesBase,
@@ -12,7 +15,7 @@ from backend.core.plugins.metadata import (
     MetadataPlugin,
     SeriesFetchModel,
 )
-from .ranobedb_api import IMAGE_BASE_URL, get_series, get_series_by_id, get_book_by_id
+from .ranobedb_api import IMAGE_BASE_URL, download_image, get_series, get_series_by_id, get_book_by_id
 
 
 class RanobeDBPlugin(MetadataPlugin):
@@ -23,6 +26,11 @@ class RanobeDBPlugin(MetadataPlugin):
     description = "Metadata plugin for RanobeDB"
     enabled = True
     _base_img_url = IMAGE_BASE_URL
+    
+    PLUGIN_DIR = Path(__file__).parent
+    IMG_DIR = "data/img"
+
+    IMG_API_URL = f"/api/v1/image/{name}"
 
     @staticmethod
     def _determine_title(lang: str, response: dict) -> str:
@@ -230,7 +238,7 @@ class RanobeDBPlugin(MetadataPlugin):
         if not series_details:
             return None
 
-        ## TODO: Save image locally and set img_url accordingly
+
         authors = [
             s.get("name")
             for s in series_details.get("staff", [])
@@ -270,13 +278,21 @@ class RanobeDBPlugin(MetadataPlugin):
             if t.get("ttype") == "content" and t.get("name")
         ]
 
-        img_filename = None
+        ## TODO: Save image locally to backend/plugins/RanobeDB/data/img || ./data/img and set img_url accordingly
+        img_api = None
         nsfw_img = False
         if books := series_details.get("books"):
             if books[0] and (image := books[0].get("image")):
                 img_filename = image.get("filename")
+                img_path = await download_image(img_filename, dest_path=(self.PLUGIN_DIR / self.IMG_DIR))
+                if img_path:
+                    # Get the relative path from plugin dir and URL-encode it
+                    relative_path = Path(img_path).relative_to(self.PLUGIN_DIR)
+                    encoded_path = quote(str(relative_path), safe='')
+                    img_api = f"{self.IMG_API_URL}/{encoded_path}"
                 nsfw_img = image.get("nsfw", False)
 
+        
         potential_links = []
         if url := series_details.get("web_novel"):
             potential_links.append({"name": "Web Novel", "url": url})
@@ -339,7 +355,7 @@ class RanobeDBPlugin(MetadataPlugin):
             tags=tags,
             demographics=demographics,
             content_tags=content_tags,
-            img_url=f"{self._base_img_url}/{img_filename}" if img_filename else None,
+            img_url=img_api or None,
             source_url=f"https://ranobedb.org/series/{external_id}",
             nsfw_img=nsfw_img,
             source_id=None,  # Will be set by the caller
@@ -389,7 +405,20 @@ class RanobeDBPlugin(MetadataPlugin):
                 and s.get("role")
             ]
 
+
+
+            nsfw_img = False
+            
+
             img_filename = book_detail.get("image", {}).get("filename")
+            img_path = await download_image(img_filename, (self.PLUGIN_DIR / self.IMG_DIR)) if img_filename else None
+            if img_path:
+                # Get the relative path from plugin dir and URL-encode it
+                relative_path = Path(img_path).relative_to(self.PLUGIN_DIR)
+                encoded_path = quote(str(relative_path), safe='')
+                img_api = f"{self.IMG_API_URL}/{encoded_path}"
+            else:
+                img_api = None
             nsfw_img = (
                 book_detail.get("image", {}).get("nsfw", False)
                 if book_detail.get("image")
@@ -406,9 +435,7 @@ class RanobeDBPlugin(MetadataPlugin):
                 title_orig=book_detail.get("title_orig"),
                 description=book_detail.get("description")
                 or series_details.get("description_ja"),
-                img_url=(
-                    f"{self._base_img_url}/{img_filename}" if img_filename else None
-                ),
+                img_url=img_api or None,
                 authors=authors,
                 artists=artists,
                 other_staff=other_staff,

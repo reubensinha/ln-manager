@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
-from httpx import get
+from pathlib import Path
+from urllib.parse import unquote
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import FileResponse
 from sqlmodel import SQLModel, Session, select
+import logging
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.plugin_manager import plugin_manager
@@ -11,6 +14,19 @@ from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+class AddSeriesRequest(SQLModel):
+    source: str
+    external_id: str
+    series_group: str | None = None  # optional name of the series group
+
+
+class AddSeriesResponse(SQLModel):
+    success: bool
+    message: str
 
 
 @router.get("/series_details/{source}", response_model=SeriesDetailsResponse)
@@ -37,17 +53,6 @@ async def search_series(query: str, source: str):
     results = await plugin.search_series(query)
     # TODO: Filter out existing series from results
     return results
-
-
-class AddSeriesRequest(SQLModel):
-    source: str
-    external_id: str
-    series_group: str | None = None  # optional name of the series group
-
-
-class AddSeriesResponse(SQLModel):
-    success: bool
-    message: str
 
 
 @router.post("/add/series", response_model=AddSeriesResponse)
@@ -267,3 +272,44 @@ async def fetch_series(
     ## TODO: Refresh monitored and download_status fields once system is implemented
 
     return {"success": True, "message": "Series added successfully"}
+
+@router.get("/image/{source}/{filepath:path}")  
+async def get_image(source: str, filepath: str, request: Request):
+    
+    # Get the raw, undecoded path from the request scope
+    raw_path = request.scope.get("raw_path", b"").decode("utf-8")
+    
+    # The part of the path we are interested in comes after /image/{source}/
+    prefix = f"/api/v1/metadata/image/{source}/"
+    if raw_path.startswith(prefix):
+        filepath = raw_path[len(prefix):]
+
+    plugin = plugin_manager.get_plugin(source)
+    if not plugin or not isinstance(plugin, MetadataPlugin):
+        raise HTTPException(status_code=404, detail="Metadata source not found")
+    
+    plugin_dir = Path(__file__).parent.parent.parent / "plugins" / source
+    
+    # The filepath is URL-encoded, so we need to decode it for filesystem access
+    decoded_filepath = unquote(filepath)
+    
+    img_path = plugin_dir / decoded_filepath
+    
+    logger.info(f"[DEBUG] Looking for image at: {img_path}")
+    logger.info(f"[DEBUG] Image exists: {img_path.exists()}")
+    logger.info(f"[DEBUG] Plugin dir: {plugin_dir}")
+    logger.info(f"Is file: {img_path.is_file() if img_path.exists() else 'N/A'}")
+
+    if not img_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if not img_path.is_file():
+        raise HTTPException(status_code=400, detail="Not a file")
+    
+    try:
+        img_path.resolve().relative_to(plugin_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return FileResponse(img_path)
+
