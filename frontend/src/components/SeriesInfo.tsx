@@ -372,7 +372,13 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
           </Text>
           <Group gap="xs">
             {series.aliases?.map((alias) => (
-              <Badge key={alias} size="sm" color="cyan" variant="outline">
+              <Badge
+                key={alias}
+                size="sm"
+                color="cyan"
+                variant="outline"
+                tt={"none"}
+              >
                 {alias}
               </Badge>
             ))}
