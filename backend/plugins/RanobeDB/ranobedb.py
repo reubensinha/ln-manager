@@ -47,11 +47,11 @@ class RanobeDBPlugin(MetadataPlugin):
                 or "Unknown Title"
             )
         else:
-            # For non-Japanese books: romaji > romaji_orig > title > title_orig > "Unknown Title"
+            # For non-Japanese books: title > romaji > romaji_orig > title_orig > "Unknown Title"
             title = (
-                response.get("romaji")
+                response.get("title")
+                or response.get("romaji")
                 or response.get("romaji_orig")
-                or response.get("title")
                 or response.get("title_orig")
                 or "Unknown Title"
             )
