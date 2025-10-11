@@ -9,14 +9,14 @@ import {
   Center,
   Divider,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff } from "react-icons/tb";
 import type { Book } from "../api/ApiResponse";
-import { useState } from "react";
 
 const BLUR_NSFW: boolean = true;
 
 function BookInfo({ book }: { book: Book }) {
-  const [showNsfw, setShowNsfw] = useState(false);
+  const [showNsfw, { open: openNsfw }] = useDisclosure(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
   return (
     <Stack style={{ flex: 1 }}>
@@ -36,7 +36,7 @@ function BookInfo({ book }: { book: Book }) {
           />
           {shouldBlur && (
             <Box
-              onClick={() => setShowNsfw(true)}
+              onClick={openNsfw}
               style={{
                 position: "absolute",
                 top: 0,
