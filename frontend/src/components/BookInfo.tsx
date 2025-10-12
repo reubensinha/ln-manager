@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
   Group,
   Text,
@@ -8,16 +10,38 @@ import {
   Box,
   Center,
   Divider,
+  Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff } from "react-icons/tb";
+
+import { toggleBookDownloaded } from "../api/api";
 import type { Book } from "../api/ApiResponse";
 
 const BLUR_NSFW: boolean = true;
 
 function BookInfo({ book }: { book: Book }) {
   const [showNsfw, { open: openNsfw }] = useDisclosure(false);
+  const [isDownloaded, setIsDownloaded] = useState(book.downloaded);
+  const [isLoading, setIsLoading] = useState(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
+
+  useEffect(() => {
+    setIsDownloaded(book.downloaded);
+  }, [book.downloaded]);
+
+  const handleToggleDownloaded = async () => {
+    setIsLoading(true);
+    try {
+      await toggleBookDownloaded(book.id);
+      setIsDownloaded((prev) => !prev);
+    } catch (error) {
+      console.error("Error toggling download:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Stack style={{ flex: 1 }}>
       <Group align="flex-start" gap="xl">
@@ -95,11 +119,7 @@ function BookInfo({ book }: { book: Book }) {
 
           {/* Publishing Status and Dates */}
           <Group gap="md" wrap="wrap">
-            {book.release_date && (
-              <Badge>
-                {book.release_date}
-              </Badge>
-            )}
+            {book.release_date && <Badge>{book.release_date}</Badge>}
           </Group>
 
           {/* Series Statistics */}
@@ -168,6 +188,14 @@ function BookInfo({ book }: { book: Book }) {
               </Stack>
             </Stack>
           )}
+
+          <Button
+            onClick={handleToggleDownloaded}
+            loading={isLoading}
+            variant={isDownloaded ? "light" : "filled"}
+          >
+            {isDownloaded ? "In Library" : "Add to Library"}
+          </Button>
         </Stack>
       </Group>
 

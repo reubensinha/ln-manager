@@ -17,6 +17,8 @@ function Library() {
         link: `/series/${item.id}`,
         in_library: true,
         nsfw_img: item.nsfw_img,
+        downloaded: item.download_status,
+        monitored: item.monitored,
       }));
       setSeries(seriesGroupsWithLinks);
     });

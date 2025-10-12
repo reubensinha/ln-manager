@@ -103,6 +103,46 @@ export async function getBookByID(id: string): Promise<Book | null> {
   }
 }
 
+export async function toggleBookDownloaded(bookId: string): Promise<{ status: string } | null> {
+  try {
+    const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling book downloaded status:", error);
+    return null;
+  }
+}
+
+export async function toggleBookMonitored(bookId: string): Promise<{ status: string } | null> {
+  try {
+    const response = await api.patch(`/toggle-book-monitored/${bookId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling book monitored status:", error);
+    return null;
+  }
+}
+
+export async function toggleSeriesDownloaded(seriesId: string): Promise<{ status: string } | null> {
+  try {
+    const response = await api.patch(`/toggle-series-downloaded/${seriesId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling series downloaded status:", error);
+    return null;
+  }
+}
+
+export async function toggleSeriesMonitored(seriesId: string): Promise<{ status: string } | null> {
+  try {
+    const response = await api.patch(`/toggle-series-monitored/${seriesId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling series monitored status:", error);
+    return null;
+  }
+}
+
 export async function getPlugins(): Promise<PluginResponse[]> {
   // Placeholder function to simulate fetching plugins from an API
   return [

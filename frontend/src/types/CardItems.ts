@@ -5,5 +5,7 @@ export interface CardItem {
   img_url?: string;
   link?: string;
   in_library?: boolean;
+  downloaded?: boolean | string;
+  monitored?: boolean;
   nsfw_img?: boolean;
 };

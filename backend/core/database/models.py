@@ -1,9 +1,7 @@
 # from __future__ import annotations
 from datetime import date
 from enum import Enum
-from httpx import delete
 from sqlmodel import Field, SQLModel, Relationship
-from typing import Literal
 import uuid
 
 from sqlmodel import Column, JSON
@@ -68,11 +66,31 @@ class LanguageCode(str, Enum):
 class DownloadStatus(str, Enum):
     CONTINUING = "continuing"               ## All english books are downloaded and series is ongoing
     CONTINUING_orig = "continuing_orig"     ## All books are downloaded and series is ongoing
-    COMPLETED = "completed"                 ## All books are downloaded and series is completed  
+    COMPLETED = "completed"                 ## All books are downloaded and series is completed or cancelled
+    STALLED = "stalled"                     ## All books are downloaded and series is stalled/hiatus/unknown
     MISSING = "missing"                     ## Some books are missing
     NONE = "none"                           ## No books are downloaded
 
 # Create a reusable Literal type that includes None as a valid option
+
+class PublishingStatus(str, Enum):
+    UNKNOWN = "unknown"
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    HIATUS = "hiatus"
+    STALLED = "stalled"
+    CANCELLED = "cancelled"
+
+
+class ExternalLink(SQLModel):
+    name: str
+    url: str
+    icon_url: str | None = None
+
+
+class StaffRole(SQLModel):
+    name: str
+    role: str
 
 
 ################################################################################
@@ -189,24 +207,7 @@ class SeriesSearchResponse(SQLModel):
     nsfw_img: bool = False
 
 
-class PublishingStatus(str, Enum):
-    UNKNOWN = "unknown"
-    ONGOING = "ongoing"
-    COMPLETED = "completed"
-    HIATUS = "hiatus"
-    STALLED = "stalled"
-    CANCELLED = "cancelled"
 
-
-class ExternalLink(SQLModel):
-    name: str
-    url: str
-    icon_url: str | None = None
-
-
-class StaffRole(SQLModel):
-    name: str
-    role: str
 
 
 class SeriesDetailsResponse(SQLModel):
@@ -493,6 +494,8 @@ class BookBase(SQLModel):
     source_url: str | None = None
     nsfw_img: bool = False
     deleted: bool = False
+    monitored: bool = True
+    downloaded: bool = False
 
     series_id: uuid.UUID = Field(foreign_key="series.id", ondelete="CASCADE")
 

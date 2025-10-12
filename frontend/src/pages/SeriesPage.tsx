@@ -37,6 +37,8 @@ function SeriesPage() {
             link: `/book/${item.id}`,
             in_library: true,
             nsfw_img: item.nsfw_img,
+            downloaded: item.downloaded,
+            monitored: item.monitored,
           })) ?? [];
 
         const chaptersWithLinks =

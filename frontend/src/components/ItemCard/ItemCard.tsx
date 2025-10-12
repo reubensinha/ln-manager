@@ -3,7 +3,14 @@ import { AspectRatio, Card, Image, Text } from "@mantine/core";
 import classes from "./ItemCard.module.css";
 import { type CardItem } from "../../types/CardItems";
 
-const stripColor = "red";
+const stripColor: { [key: string]: string } = {
+  true: "green",
+  continuing: "cyan",
+  continuing_orig: "blue",
+  completed: "green",
+  stalled: "orange",
+  missing: "purple",
+};
 
 function ItemCard({ item }: { item: CardItem }) {
   const link = item.link ?? "#";
@@ -23,8 +30,8 @@ function ItemCard({ item }: { item: CardItem }) {
           <Image src={item.img_url} alt={item.title} fit="contain" />
         </Card.Section>
 
-        {/* TODO: Add dynamic Color Strip Section once backend api is ready */}
-        <Card.Section style={{ backgroundColor: stripColor, height: barVisible }} />
+        {/* TODO: Add dynamic Color Strip Section */}
+        <Card.Section style={{ backgroundColor: stripColor[String(item.downloaded)] || "red", height: barVisible }} />
 
         <Card.Section className={classes.footer}>
           <Text fw={500} size="sm" lineClamp={3}>

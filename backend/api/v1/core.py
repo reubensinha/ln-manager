@@ -69,3 +69,129 @@ async def read_book(*, session: Session = Depends(get_session), book_id: UUID):
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     return book
+
+@router.patch("/toggle-book-downloaded/{book_id}", response_model=dict[str, str])
+async def toggle_download_status(*, session: Session = Depends(get_session), book_id: UUID):
+    book = session.get(Book, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    book.downloaded = not book.downloaded
+    session.add(book)
+    
+    # TODO: Update series download status if needed
+    series = session.get(Series, book.series_id)
+    if not series:
+        # This case should ideally not happen if data integrity is maintained
+        raise HTTPException(status_code=404, detail="Series not found for the book")
+
+    all_books_downloaded = all(b.downloaded for b in series.books)
+    any_books_downloaded = any(b.downloaded for b in series.books)
+    
+    target_status = DownloadStatus.NONE
+
+    if all_books_downloaded:
+        if series.publishing_status in {
+            PublishingStatus.COMPLETED,
+            PublishingStatus.CANCELLED,
+        }:
+            target_status = DownloadStatus.COMPLETED
+        elif series.publishing_status == PublishingStatus.ONGOING:
+            target_status = DownloadStatus.CONTINUING
+        else:  # STALLED, HIATUS, UNKNOWN
+            target_status = DownloadStatus.STALLED
+    elif any_books_downloaded:
+        target_status = DownloadStatus.MISSING
+    else: # No books downloaded
+        target_status = DownloadStatus.NONE
+
+    series.download_status = target_status
+    session.add(series)
+    
+    series_group = session.get(SeriesGroup, series.group_id)
+    if not series_group:
+        # This case should ideally not happen if data integrity is maintained
+        raise HTTPException(status_code=404, detail="Series group not found for the series")
+
+    if str(series_group.main_series_id) == str(series.id):
+
+        series_group.download_status = target_status
+        session.add(series_group)
+
+    session.commit()
+    return {"status": "success"}
+
+@router.patch("/toggle-book-monitored/{book_id}", response_model=dict[str, str])
+async def toggle_monitor_status(*, session: Session = Depends(get_session), book_id: UUID):
+    book = session.get(Book, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    book.monitored = not book.monitored
+    session.add(book)
+    session.commit()
+    return {"status": "success"}
+
+@router.patch("/toggle-series-downloaded/{series_id}", response_model=dict[str, str])
+async def toggle_series_download_status(*, session: Session = Depends(get_session), series_id: UUID):
+    series = session.get(Series, series_id)
+    if not series:
+        raise HTTPException(status_code=404, detail="Series not found")
+    # Toggle the downloaded status of all books in the series
+    
+    target_status = any(not book.downloaded for book in series.books)
+
+    for book in series.books:
+        book.downloaded = target_status
+        session.add(book)
+
+    all_books_downloaded = all(b.downloaded for b in series.books)
+    any_books_downloaded = any(b.downloaded for b in series.books)
+    
+    target_status = DownloadStatus.NONE
+
+    if all_books_downloaded:
+        if series.publishing_status in {
+            PublishingStatus.COMPLETED,
+            PublishingStatus.CANCELLED,
+        }:
+            target_status = DownloadStatus.COMPLETED
+        elif series.publishing_status == PublishingStatus.ONGOING:
+            target_status = DownloadStatus.CONTINUING
+        else:  # STALLED, HIATUS, UNKNOWN
+            target_status = DownloadStatus.STALLED
+    elif any_books_downloaded:
+        target_status = DownloadStatus.MISSING
+    else: # No books downloaded
+        target_status = DownloadStatus.NONE
+
+    series.download_status = target_status
+    session.add(series)
+    
+    series_group = session.get(SeriesGroup, series.group_id)
+    if not series_group:
+        # This case should ideally not happen if data integrity is maintained
+        raise HTTPException(status_code=404, detail="Series group not found for the series")
+
+    if str(series_group.main_series_id) == str(series.id):
+
+        series_group.download_status = target_status
+        session.add(series_group)
+        
+    session.commit()
+    return {"status": "success"}
+
+
+@router.patch("/toggle-series-monitored/{series_id}", response_model=dict[str, str])
+async def toggle_series_monitor_status(*, session: Session = Depends(get_session), series_id: UUID):
+    series = session.get(Series, series_id)
+    if not series:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    target_status = any(not book.monitored for book in series.books)
+
+    for book in series.books:
+        book.monitored = target_status
+        session.add(book)
+    session.commit()
+    return {"status": "success"}
