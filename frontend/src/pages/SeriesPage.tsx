@@ -18,6 +18,7 @@ function SeriesPage() {
   const [books, setBooks] = useState<CardItem[]>([]);
   const [chapters, setChapters] = useState<CardItem[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>("books");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (groupID) {
@@ -99,6 +100,26 @@ function SeriesPage() {
     });
   };
 
+  const handleRefresh = async () => {
+    if (!series) return;
+
+    setIsRefreshing(true);
+    try {
+      await addSeries(
+        series.plugin.name,
+        series.external_id,
+        seriesGroup?.id || ""
+      );
+      // After refreshing, re-fetch the series data
+      if (groupID) {
+        const updatedGroup = await getSeriesGroupById(groupID);
+        setSeriesGroup(updatedGroup);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!seriesGroup) {
     return <Text>Loading series...</Text>;
   }
@@ -116,14 +137,23 @@ function SeriesPage() {
         <Group justify="space-between">
           <Tabs.List mb={"md"}>
             {seriesGroup.series?.map((seriesItem) => (
-              <Tabs.Tab key={seriesItem.id} value={seriesItem.id}>
+              <Tabs.Tab key={seriesItem.id} value={seriesItem.id} disabled={isRefreshing}>
                 {seriesItem.plugin.name}
               </Tabs.Tab>
             ))}
           </Tabs.List>
 
-          <Button mr={"xl"} onClick={() => addSeries(series.plugin.name, series.external_id, seriesGroup.id)}>
-            <TbRefresh />
+          <Button
+            mr={"xl"}
+            onClick={handleRefresh}
+            loading={isRefreshing}
+            disabled={isRefreshing}
+          >
+            <TbRefresh
+              style={{
+                animation: isRefreshing ? "spin 1s linear infinite" : "none",
+              }}
+            />
           </Button>
         </Group>
 
