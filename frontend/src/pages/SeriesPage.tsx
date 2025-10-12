@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Text, SimpleGrid, Tabs } from "@mantine/core";
 import { useParams } from "react-router";
+import { Text, SimpleGrid, Tabs, Group, Button } from "@mantine/core";
+import { TbRefresh } from "react-icons/tb";
 
-import { getSeriesById, getSeriesGroupById } from "../api/api";
+import { getSeriesById, getSeriesGroupById, addSeries } from "../api/api";
 import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
 import { type CardItem } from "../types/CardItems";
@@ -112,13 +113,19 @@ function SeriesPage() {
         defaultValue={seriesGroup.main_series_id}
         onChange={(value) => handleSeriesTabChange(value ?? "")}
       >
-        <Tabs.List mb={"md"}>
-          {seriesGroup.series?.map((seriesItem) => (
-            <Tabs.Tab key={seriesItem.id} value={seriesItem.id}>
-              {seriesItem.plugin.name}
-            </Tabs.Tab>
-          ))}
-        </Tabs.List>
+        <Group justify="space-between">
+          <Tabs.List mb={"md"}>
+            {seriesGroup.series?.map((seriesItem) => (
+              <Tabs.Tab key={seriesItem.id} value={seriesItem.id}>
+                {seriesItem.plugin.name}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+
+          <Button mr={"xl"} onClick={() => addSeries(series.plugin.name, series.external_id, seriesGroup.id)}>
+            <TbRefresh />
+          </Button>
+        </Group>
 
         <Tabs.Panel value={series.id}>
           <SeriesInfo series={series} />

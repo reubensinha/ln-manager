@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import SQLModel, Session, select
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
+from backend.api.v1.utils import _update_download_status
 from backend.plugin_manager import plugin_manager
 from backend.core.database.models import *
 import uuid
@@ -169,11 +170,18 @@ async def fetch_series(
             ).first()
 
             if existing_book:
+                saved_monitored = existing_book.monitored
+                saved_downloaded = existing_book.downloaded
+                
                 for key, value in book_model.book.model_dump(
-                    exclude={"id", "series_id"}
+                    exclude={"id", "series_id", "monitored", "downloaded"}
                 ).items():
                     setattr(existing_book, key, value)
                 existing_book.deleted = False
+                
+                existing_book.monitored = saved_monitored
+                existing_book.downloaded = saved_downloaded
+                
                 book_obj = existing_book
             else:
                 book_obj = Book.model_validate(
@@ -261,6 +269,10 @@ async def fetch_series(
 
         session.commit()
         session.refresh(series_obj)
+        
+        _update_download_status(session, series_obj)
+        session.commit()
+        
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")

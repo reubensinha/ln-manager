@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from uuid import UUID
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
+from backend.api.v1.utils import _update_download_status
 from backend.core.database.models import *
 from backend.core.database.database import get_session
 from backend.plugin_manager import plugin_manager
@@ -85,38 +86,7 @@ async def toggle_download_status(*, session: Session = Depends(get_session), boo
         # This case should ideally not happen if data integrity is maintained
         raise HTTPException(status_code=404, detail="Series not found for the book")
 
-    all_books_downloaded = all(b.downloaded for b in series.books)
-    any_books_downloaded = any(b.downloaded for b in series.books)
-    
-    target_status = DownloadStatus.NONE
-
-    if all_books_downloaded:
-        if series.publishing_status in {
-            PublishingStatus.COMPLETED,
-            PublishingStatus.CANCELLED,
-        }:
-            target_status = DownloadStatus.COMPLETED
-        elif series.publishing_status == PublishingStatus.ONGOING:
-            target_status = DownloadStatus.CONTINUING
-        else:  # STALLED, HIATUS, UNKNOWN
-            target_status = DownloadStatus.STALLED
-    elif any_books_downloaded:
-        target_status = DownloadStatus.MISSING
-    else: # No books downloaded
-        target_status = DownloadStatus.NONE
-
-    series.download_status = target_status
-    session.add(series)
-    
-    series_group = session.get(SeriesGroup, series.group_id)
-    if not series_group:
-        # This case should ideally not happen if data integrity is maintained
-        raise HTTPException(status_code=404, detail="Series group not found for the series")
-
-    if str(series_group.main_series_id) == str(series.id):
-
-        series_group.download_status = target_status
-        session.add(series_group)
+    _update_download_status(session, series)
 
     session.commit()
     return {"status": "success"}
@@ -145,38 +115,7 @@ async def toggle_series_download_status(*, session: Session = Depends(get_sessio
         book.downloaded = target_status
         session.add(book)
 
-    all_books_downloaded = all(b.downloaded for b in series.books)
-    any_books_downloaded = any(b.downloaded for b in series.books)
-    
-    target_status = DownloadStatus.NONE
-
-    if all_books_downloaded:
-        if series.publishing_status in {
-            PublishingStatus.COMPLETED,
-            PublishingStatus.CANCELLED,
-        }:
-            target_status = DownloadStatus.COMPLETED
-        elif series.publishing_status == PublishingStatus.ONGOING:
-            target_status = DownloadStatus.CONTINUING
-        else:  # STALLED, HIATUS, UNKNOWN
-            target_status = DownloadStatus.STALLED
-    elif any_books_downloaded:
-        target_status = DownloadStatus.MISSING
-    else: # No books downloaded
-        target_status = DownloadStatus.NONE
-
-    series.download_status = target_status
-    session.add(series)
-    
-    series_group = session.get(SeriesGroup, series.group_id)
-    if not series_group:
-        # This case should ideally not happen if data integrity is maintained
-        raise HTTPException(status_code=404, detail="Series group not found for the series")
-
-    if str(series_group.main_series_id) == str(series.id):
-
-        series_group.download_status = target_status
-        session.add(series_group)
+    _update_download_status(session, series)
         
     session.commit()
     return {"status": "success"}
