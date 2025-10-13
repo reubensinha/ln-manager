@@ -17,6 +17,7 @@ import Library from "./pages/Library.tsx";
 import SeriesPage from "./pages/SeriesPage.tsx";
 import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
+import CalendarPage from "./pages/CalendarPage.tsx";
 // import Vite from "./Vite.tsx";
 
 import { pluginManifests } from "./plugin-manifests";
@@ -34,6 +35,7 @@ function App() {
               <Route path="/book/:bookID" element={<BookPage />} />
               <Route path="/search/:source" element={<Search />} />
               <Route path="/search/:source/:query" element={<Search />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="*" element={<NothingFoundBackground />} />
 
               {/* Plugin Routes */}
