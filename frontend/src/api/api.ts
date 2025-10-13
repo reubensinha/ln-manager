@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse } from './ApiResponse';
+import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse, Release } from './ApiResponse';
 import type { Book, Series } from '../api/ApiResponse';
 
 
@@ -100,6 +100,16 @@ export async function getBookByID(id: string): Promise<Book | null> {
   } catch (error) {
     console.error("Error fetching book by ID:", error);
     return null;
+  }
+}
+
+export async function getReleases(): Promise<Release[]> {
+  try {
+    const response = await api.get(`/releases`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching releases:", error);
+    return [];
   }
 }
 

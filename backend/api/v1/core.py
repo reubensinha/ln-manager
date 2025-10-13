@@ -71,6 +71,11 @@ async def read_book(*, session: Session = Depends(get_session), book_id: UUID):
         raise HTTPException(status_code=404, detail="Book not found")
     return book
 
+@router.get("/releases", response_model=list[ReleasePublicSimple])
+async def read_release_list(*, session: Session = Depends(get_session)):
+    releases = session.exec(select(Release)).all()
+    return releases
+
 @router.patch("/toggle-book-downloaded/{book_id}", response_model=dict[str, str])
 async def toggle_download_status(*, session: Session = Depends(get_session), book_id: UUID):
     book = session.get(Book, book_id)
