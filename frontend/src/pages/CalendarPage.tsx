@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Title, Text, Group, Box, ActionIcon, Flex, SegmentedControl, Loader, Center } from '@mantine/core';
-import { TbChevronLeft, TbChevronRight } from "react-icons/tb";
+import { Box, Loader, Center } from '@mantine/core';
 import { getReleases } from '../api/api';
 import type { Release } from '../api/ApiResponse';
 import CalendarMonthView from '../components/Calendar/CalendarMonthView';
 import CalendarWeekView from '../components/Calendar/CalendarWeekView';
+import CalendarHeader from '../components/Calendar/CalendarHeader';
+import WeekdayHeaders from '../components/Calendar/WeekdayHeaders';
 
 type ViewMode = 'month' | 'week';
 
@@ -25,7 +26,6 @@ function CalendarPage() {
     fetchReleases();
   }, []);
 
-  // Get all weeks in the month
   const getMonthWeeks = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -56,7 +56,6 @@ function CalendarPage() {
     return weeks;
   };
 
-  // Get start of week (Sunday)
   const getWeekStart = (date: Date) => {
     const d = new Date(date);
     const day = d.getDay();
@@ -64,7 +63,6 @@ function CalendarPage() {
     return new Date(d.setDate(diff));
   };
 
-  // Get 7 days starting from week start
   const getWeekDays = () => {
     const weekStart = getWeekStart(currentDate);
     return Array.from({ length: 7 }, (_, i) => {
@@ -74,7 +72,6 @@ function CalendarPage() {
     });
   };
 
-  // Get releases for a specific date
   const getReleasesForDate = (date: Date) => {
     const dateStr = date.toISOString().split('T')[0];
     return releases.filter(r => 
@@ -82,24 +79,14 @@ function CalendarPage() {
     );
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentDate(newDate);
-  };
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-    setCurrentDate(newDate);
-  };
-
   const navigate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
     if (viewMode === 'month') {
-      navigateMonth(direction);
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
     } else {
-      navigateWeek(direction);
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
     }
+    setCurrentDate(newDate);
   };
 
   const weeks = getMonthWeeks();
@@ -107,6 +94,10 @@ function CalendarPage() {
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const weekStart = weekDays[0];
   const weekEnd = weekDays[6];
+
+  const title = viewMode === 'month' 
+    ? monthName
+    : `${weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
 
   if (loading) {
     return (
@@ -118,51 +109,16 @@ function CalendarPage() {
 
   return (
     <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
-        <Flex justify="space-between" align="center">
-          <Title order={2}>
-            {viewMode === 'month' 
-              ? monthName
-              : `${weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-            }
-          </Title>
-          <Group>
-            <SegmentedControl
-              value={viewMode}
-              onChange={(value) => setViewMode(value as ViewMode)}
-              data={[
-                { label: 'Month', value: 'month' },
-                { label: 'Week', value: 'week' },
-              ]}
-            />
-            <ActionIcon variant="default" onClick={() => navigate('prev')} size="lg">
-              <TbChevronLeft size={18} />
-            </ActionIcon>
-            <ActionIcon variant="filled" onClick={() => setCurrentDate(new Date())} size="lg">
-              <Text size="xs" fw={600}>Today</Text>
-            </ActionIcon>
-            <ActionIcon variant="default" onClick={() => navigate('next')} size="lg">
-              <TbChevronRight size={18} />
-            </ActionIcon>
-          </Group>
-        </Flex>
-      </Box>
+      <CalendarHeader
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        title={title}
+        onNavigate={navigate}
+        onToday={() => setCurrentDate(new Date())}
+      />
 
-      {/* Weekday Headers - Only for month view */}
-      {viewMode === 'month' && (
-        <Group gap={0} grow style={{ borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
-          {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day) => (
-            <Box key={day} p="sm" ta="center">
-              <Text fw={600} size="sm" c="dimmed">
-                {day}
-              </Text>
-            </Box>
-          ))}
-        </Group>
-      )}
+      {viewMode === 'month' && <WeekdayHeaders />}
 
-      {/* Calendar Grid */}
       {viewMode === 'month' ? (
         <CalendarMonthView 
           weeks={weeks}

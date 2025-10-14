@@ -1,5 +1,6 @@
-import { Group, Box, Stack, Text, Card, Badge } from '@mantine/core';
+import { Group, Box, Stack, Text } from '@mantine/core';
 import type { Release } from '../../api/ApiResponse';
+import ReleaseCard from './ReleaseCard';
 
 interface CalendarMonthViewProps {
   weeks: Date[][];
@@ -34,6 +35,7 @@ function CalendarMonthView({ weeks, currentDate, getReleasesForDate }: CalendarM
                     p="xs"
                     style={{
                       backgroundColor: isToday ? 'var(--mantine-color-blue-9)' : undefined,
+                      flexShrink: 0,
                     }}
                   >
                     <Text
@@ -45,30 +47,17 @@ function CalendarMonthView({ weeks, currentDate, getReleasesForDate }: CalendarM
                     </Text>
                   </Box>
 
-                  <Stack gap={4} p={4} style={{ flex: 1, overflow: 'auto' }}>
+                  <Stack 
+                    gap={4} 
+                    p={4} 
+                    style={{ 
+                      flex: 1, 
+                      overflow: 'auto',
+                      minHeight: 0,
+                    }}
+                  >
                     {dayReleases.map((release) => (
-                      <Card
-                        key={release.id}
-                        padding={4}
-                        withBorder
-                        style={{
-                          cursor: 'pointer',
-                          borderLeft: '3px solid var(--mantine-color-blue-6)',
-                        }}
-                      >
-                        <Stack gap={2}>
-                          <Text size="xs" fw={600} lineClamp={2}>
-                            {release.title}
-                          </Text>
-                          <Group gap={2}>
-                            {release.format && (
-                              <Badge size="xs" variant="light">
-                                {release.format}
-                              </Badge>
-                            )}
-                          </Group>
-                        </Stack>
-                      </Card>
+                      <ReleaseCard key={release.id} release={release} compact />
                     ))}
                   </Stack>
                 </Box>
