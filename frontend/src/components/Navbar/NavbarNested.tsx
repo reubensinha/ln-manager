@@ -9,31 +9,53 @@ import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
 import classes from "./NavbarNested.module.css";
 import { pluginManifests } from "../../plugin-manifests";
+import { getPlugins } from "../../api/api";
 import { useLocation } from "react-router";
 
 import { type NavLink } from "../../types/NavLink";
 
+const pluginList = await getPlugins();
+
+const isIndexerPlugin = pluginList?.some((p) => p.type === "indexer") ?? false;
+const isDownloadClientPlugin =
+  pluginList?.some((p) => p.type === "downloadclient") ?? false;
+
 const coreLinkGroup: NavLink[] = [
   { label: "Library", icon: TbGauge, link: "/" },
   { label: "Calendar", icon: TbCalendarStats, link: "/calendar" },
-  {
-    label: "Activity",
-    icon: TbNotes,
-    links: [
-      { label: "Queue", link: "activity/queue" },
-      { label: "History", link: "activity/history" },
-      { label: "Blocklist", link: "activity/blocklist" },
-    ],
-  },
+  ...(isIndexerPlugin
+    ? [
+        {
+          label: "Activity",
+          icon: TbNotes,
+          links: [
+            { label: "Queue", link: "activity/queue" },
+            { label: "History", link: "activity/history" },
+            { label: "Blocklist", link: "activity/blocklist" },
+          ],
+        },
+      ]
+    : []),
   {
     label: "Settings",
     icon: TbGauge,
     links: [
-      { label: "Media Management", link: "/settings/mediamanagement" },
-      { label: "Profiles", link: "/settings/profiles" },
-      { label: "Custom Formats", link: "/settings/customformats" },
-      { label: "Indexers", link: "/settings/indexers" },
-      { label: "Download Clients", link: "/settings/downloadclients" },
+      ...(isDownloadClientPlugin
+        ? [{ label: "Media Management", link: "/settings/mediamanagement" }]
+        : []),
+
+      ...(isIndexerPlugin
+        ? [
+            { label: "Profiles", link: "/settings/profiles" },
+            { label: "Custom Formats", link: "/settings/customformats" },
+            { label: "Indexers", link: "/settings/indexers" },
+          ]
+        : []),
+
+      ...(isDownloadClientPlugin
+        ? [{ label: "Download Clients", link: "/settings/downloadclients" }]
+        : []),
+
       { label: "Metadata Sources", link: "/settings/metadatasources" },
       { label: "General", link: "/settings/general" },
       { label: "Plugins", link: "/settings/plugins" },
@@ -51,14 +73,13 @@ const coreLinkGroup: NavLink[] = [
   },
 ];
 
-
-
-
 export function NavbarNested() {
   const location = useLocation();
   const normalize = (p: string) => (p.startsWith("/") ? p : `/${p}`);
 
-  const pluginLinks = pluginManifests.flatMap((plugin) => plugin.navLinks || []);
+  const pluginLinks = pluginManifests.flatMap(
+    (plugin) => plugin.navLinks || []
+  );
   const combinedLinks = [...coreLinkGroup, ...pluginLinks];
 
   const links = combinedLinks.map((item) => (
