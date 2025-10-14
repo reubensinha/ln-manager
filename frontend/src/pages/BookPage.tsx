@@ -7,8 +7,10 @@ import BookInfo from "../components/BookInfo";
 import { type Book } from "../api/ApiResponse";
 import ReleasesTable from "../components/ReleasesTable";
 
-function BookPage() {
-  const { bookID } = useParams<{ bookID: string }>();
+function BookPage({ bookID: propBookID }: { bookID?: string }) {
+  const { bookID: paramBookID } = useParams<{ bookID: string }>();
+  const bookID = propBookID || paramBookID;
+
   const [book, setBook] = useState<Book | null>(null);
 
   useEffect(() => {
