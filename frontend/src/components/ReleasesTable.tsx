@@ -43,7 +43,7 @@ function ReleasesTable({ releases }: { releases: Release[] }) {
   );
 
   return (
-    <Box ml={240} mr={240}>
+    <Box ml={"xl"} mr={"xl"}>
       <Text size="md" fw={600} c="dimmed" mb="sm">
         Releases
       </Text>
