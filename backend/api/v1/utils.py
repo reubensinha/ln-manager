@@ -11,19 +11,6 @@ from backend.core.database.models import (
 )
 
 
-def _parse_date(date_value) -> date | None:
-    """Parse a date value that might be a string, date, or None."""
-    if date_value is None:
-        return None
-    if isinstance(date_value, date):
-        return date_value
-    if isinstance(date_value, str):
-        try:
-            return datetime.strptime(date_value, "%Y-%m-%d").date()
-        except ValueError:
-            return None
-    return None
-
 def _get_earliest_english_release_date(book) -> date | None:
     """Get the earliest English release date from a book's releases."""
     english_releases = [r for r in book.releases if r.language == LanguageCode.EN]
@@ -32,7 +19,7 @@ def _get_earliest_english_release_date(book) -> date | None:
     
     release_dates = []
     for release in english_releases:
-        parsed_date = _parse_date(release.release_date)
+        parsed_date = release.release_date
         if parsed_date is not None:
             release_dates.append(parsed_date)
     
@@ -52,7 +39,7 @@ def _update_download_status(session: Session, series: Series):
     # Filter books that have been released (release_date is set and in the past)
     released_books = []
     for b in all_books:
-        parsed_date = _parse_date(b.release_date)
+        parsed_date = b.release_date
         if parsed_date is not None and parsed_date <= today:
             released_books.append(b)
 
@@ -63,12 +50,12 @@ def _update_download_status(session: Session, series: Series):
             released_english_books.append(b)
 
     # Debug logging
-    print(f"\n=== Series: {series.title} ===")
-    print(f"Total books: {len(all_books)}")
-    print(f"English books: {len(english_books)}")
-    print(f"Released books: {len(released_books)}")
-    print(f"Released English books: {len(released_english_books)}")
-    print(f"Publishing status: {series.publishing_status}")
+    # print(f"\n=== Series: {series.title} ===")
+    # print(f"Total books: {len(all_books)}")
+    # print(f"English books: {len(english_books)}")
+    # print(f"Released books: {len(released_books)}")
+    # print(f"Released English books: {len(released_english_books)}")
+    # print(f"Publishing status: {series.publishing_status}")
     
     for b in released_english_books:
         print(f"  - {b.title}: downloaded={b.downloaded}, release_date={b.release_date}")
@@ -86,10 +73,10 @@ def _update_download_status(session: Session, series: Series):
     )
     any_books_downloaded = any(b.downloaded for b in all_books)
 
-    print(f"all_books_downloaded: {all_books_downloaded}")
-    print(f"released_all_downloaded: {released_all_downloaded}")
-    print(f"released_english_downloaded: {released_english_downloaded}")
-    print(f"any_books_downloaded: {any_books_downloaded}")
+    # print(f"all_books_downloaded: {all_books_downloaded}")
+    # print(f"released_all_downloaded: {released_all_downloaded}")
+    # print(f"released_english_downloaded: {released_english_downloaded}")
+    # print(f"any_books_downloaded: {any_books_downloaded}")
 
     if not any_books_downloaded:
         target_status = DownloadStatus.NONE
