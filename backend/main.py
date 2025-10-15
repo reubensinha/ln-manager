@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from sqlmodel import Session, select
 import yaml
 
@@ -9,8 +11,17 @@ from backend.core.database.database import init_db, engine
 from backend.core.database.models import PluginBase, MetadataPluginTable, IndexerPlugin, DownloadClientPlugin, GenericPlugin
 from backend.plugin_manager import PluginManager, PLUGIN_DIR, plugin_manager
 
+from backend.core.scheduler import UPDATE_SERIES_INTERVAL_MINUTES, update_all_series_metadata
+
+
 from .api.v1 import core, metadata
 
+scheduler = AsyncIOScheduler()
+scheduler.add_job(
+    update_all_series_metadata,
+    "interval",
+    minutes=UPDATE_SERIES_INTERVAL_MINUTES,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -82,8 +93,11 @@ async def lifespan(app: FastAPI):
                 # except Exception as e:
                 #     print(f"Failed to load plugin {plugin.name}: {e}")
 
+    
+    scheduler.start()
     yield
     # Perform shutdown tasks
+    scheduler.shutdown()
 
 app = FastAPI(
     title="LN Auto",

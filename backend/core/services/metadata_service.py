@@ -1,10 +1,7 @@
 import asyncio
-from pathlib import Path
-from urllib import request
 from urllib.parse import unquote
-from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import FileResponse
-from sqlmodel import SQLModel, Session, select
+from fastapi import HTTPException, Depends
+from sqlmodel import Session, select
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.api.v1.utils import _update_download_status
