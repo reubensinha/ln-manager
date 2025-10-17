@@ -17,18 +17,18 @@ import {
 
 import { TbSearch } from "react-icons/tb";
 
-import { type SeriesGroupsResponse } from "../api/ApiResponse.ts";
-import { getSeriesGroups } from "../api/api.ts";
+import { type Series } from "../api/ApiResponse.ts";
+import { getSeries } from "../api/api.ts";
 
 // TODO: Use API to fetch metadata plugins to search from.
 
 function SpotlightSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [series, setSeries] = useState<SeriesGroupsResponse[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
 
   useEffect(() => {
-    getSeriesGroups().then((data) => setSeries(data));
+    getSeries().then((data) => setSeries(data));
   }, []);
 
   const pinnedActions: SpotlightActionGroupData[] = [
@@ -60,15 +60,23 @@ function SpotlightSearch() {
         label: s.title,
         description: `View series group: ${s.title}`,
         onClick: () => {
-          navigate(`/series/${s.id}`);
+          navigate(`/series/${s.group_id}`);
         },
       })),
     },
   ];
 
-  const filteredActions = seriesActions
-    .flatMap((group) => group.actions)
-    .filter((a) => a.label?.toLowerCase().includes(query.toLowerCase().trim()));
+  const seriesMatchesQuery = (s: Series, searchQuery: string) => {
+    return (
+      s.title?.toLowerCase().includes(searchQuery) ||
+      s.romaji?.toLowerCase().includes(searchQuery) ||
+      s.title_orig?.toLowerCase().includes(searchQuery) ||
+      s.aliases?.some((alias) => alias.toLowerCase().includes(searchQuery)) ||
+      s.authors?.some((author) => author.toLowerCase().includes(searchQuery)) ||
+      s.artists?.some((artist) => artist.toLowerCase().includes(searchQuery)) ||
+      s.other_staff?.some((staff) => staff.name.toLowerCase().includes(searchQuery))
+    );
+  };
 
   return (
     <>
@@ -108,7 +116,7 @@ function SpotlightSearch() {
               {group.actions.map((action) => (
                 <Spotlight.Action
                   key={action.id}
-                  onClick={action.onClick} // v7 uses onTrigger instead of onClick
+                  onClick={action.onClick}
                 >
                   <Group wrap="nowrap" w="100%">
                     <Text>{action.label}</Text>
@@ -125,9 +133,11 @@ function SpotlightSearch() {
 
           {/* filtered actions group */}
           {seriesActions.map((group) => {
-            const filtered = group.actions.filter((a) =>
-              a.label?.toLowerCase().includes(query.toLowerCase().trim())
-            );
+            const filtered = group.actions.filter((a) => {
+              const s = series.find((s) => s.id === a.id);
+              if (!s) return false;
+              return seriesMatchesQuery(s, query.toLowerCase().trim());
+            });
 
             if (filtered.length === 0) return null;
 
@@ -164,10 +174,6 @@ function SpotlightSearch() {
             );
           })}
 
-          {/* empty state */}
-          {filteredActions.length === 0 && pinnedActions.length === 0 && (
-            <Spotlight.Empty>Nothing found...</Spotlight.Empty>
-          )}
         </Spotlight.ActionsList>
       </Spotlight.Root>
     </>

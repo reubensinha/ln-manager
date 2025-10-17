@@ -121,6 +121,7 @@ export interface Series extends SeriesSourceResponse {
   deleted: boolean;
   monitored: boolean;
   download_status: string;
+  group_id?: string;
 }
 
 type PluginRoute = {
