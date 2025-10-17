@@ -11,6 +11,7 @@ import uuid
 
 from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
+from backend.core.notifications import notification_manager
 
 
 async def fetch_series(
@@ -20,7 +21,9 @@ async def fetch_series(
     session: Session = Depends(get_session),
 ):
     success = False
-    
+
+    notifications = []
+
     plugin = plugin_manager.get_plugin(source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
         raise HTTPException(status_code=404, detail="Metadata source not found")
@@ -51,6 +54,14 @@ async def fetch_series(
                 Series.external_id == external_id,
             )
         ).first()
+
+        if not existing_series:
+            notifications.append(
+                NotificationMessage(
+                    message=f"Added '{data.series.title}' to library.",
+                    type=NotificationType.SUCCESS,
+                )
+            )
 
         # ----- Handle Series Group -----
         if series_group:
@@ -88,6 +99,7 @@ async def fetch_series(
         # ----- Add or Update Series -----
         if existing_series:
             # Update existing series
+            ## TODO: Explicitly check for changes and notify user
             for key, value in data.series.model_dump(
                 exclude={"id", "source_id", "group_id"}
             ).items():
@@ -135,6 +147,7 @@ async def fetch_series(
             ).first()
 
             if existing_book:
+                # TODO: Explicitly check for changes and notify user
                 saved_monitored = existing_book.monitored
                 saved_downloaded = existing_book.downloaded
 
@@ -153,6 +166,14 @@ async def fetch_series(
                     book_model.book, update={"series_id": series_obj.id}
                 )
                 session.add(book_obj)
+
+                if existing_series:
+                    notifications.append(
+                        NotificationMessage(
+                            message=f"New book added to '{series_obj.title}'.",
+                            type=NotificationType.INFO,
+                        )
+                    )
 
             session.flush()
 
@@ -175,6 +196,14 @@ async def fetch_series(
                         release_model, update={"book_id": book_obj.id}
                     )
                     session.add(release_obj)
+                    
+                    if existing_series and existing_book:
+                        notifications.append(
+                            NotificationMessage(
+                                message=f"New release added to '{book_obj.title}'.",
+                                type=NotificationType.INFO,
+                            )
+                        )
 
         # ----- Add Chapters -----
         for chapter_model in data.chapters:
@@ -198,6 +227,14 @@ async def fetch_series(
                     chapter_model, update={"series_id": series_obj.id}
                 )
                 session.add(chapter_obj)
+                
+                if existing_series:
+                    notifications.append(
+                        NotificationMessage(
+                            message=f"New chapter added to '{series_obj.title}'.",
+                            type=NotificationType.INFO,
+                        )
+                    )
             session.flush()
 
             for release_model in chapter_model.releases:
@@ -219,6 +256,13 @@ async def fetch_series(
                         release_model, update={"chapter_id": chapter_obj.id}
                     )
                     session.add(release_obj)
+                    if existing_series and exisiting_chapter:
+                        notifications.append(
+                            NotificationMessage(
+                                message=f"New release added to chapter {chapter_obj.volume}x{chapter_obj.number} of '{series_obj.title}'.",
+                                type=NotificationType.INFO,
+                            )
+                        )
 
         # ----- Mark Missing Books as Deleted -----
         fetched_book_external_ids = {
@@ -237,11 +281,14 @@ async def fetch_series(
 
         _update_download_status(session, series_obj)
         session.commit()
-        
+
         success = True
 
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
 
+    for notif in notifications:
+        await notification_manager.broadcast(notif)
+    
     return success

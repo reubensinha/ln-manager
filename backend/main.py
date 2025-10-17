@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -8,10 +8,21 @@ from sqlmodel import Session, select
 import yaml
 
 from backend.core.database.database import init_db, engine
-from backend.core.database.models import PluginBase, MetadataPluginTable, IndexerPlugin, DownloadClientPlugin, GenericPlugin
+from backend.core.database.models import (
+    NotificationMessage,
+    PluginBase,
+    MetadataPluginTable,
+    IndexerPlugin,
+    DownloadClientPlugin,
+    GenericPlugin,
+)
+from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIR, plugin_manager
 
-from backend.core.scheduler import UPDATE_SERIES_INTERVAL_MINUTES, update_all_series_metadata
+from backend.core.scheduler import (
+    UPDATE_SERIES_INTERVAL_MINUTES,
+    update_all_series_metadata,
+)
 
 
 from .api.v1 import core, metadata
@@ -22,6 +33,7 @@ scheduler.add_job(
     "interval",
     minutes=UPDATE_SERIES_INTERVAL_MINUTES,
 )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,14 +47,14 @@ async def lifespan(app: FastAPI):
             manifest_file = folder / "manifest.yaml"
             if not manifest_file.exists():
                 continue
-            
+
             manifest = yaml.safe_load(manifest_file.open())
             name = manifest.get("name")
             version = manifest.get("version")
             description = manifest.get("description", "")
             author = manifest.get("author", "")
             ptype = manifest.get("type")
-            
+
             if ptype == "metadata":
                 plugin_cls = MetadataPluginTable
             elif ptype == "indexer":
@@ -51,38 +63,55 @@ async def lifespan(app: FastAPI):
                 plugin_cls = DownloadClientPlugin
             else:
                 plugin_cls = GenericPlugin
-            
+
             db_plugin = session.exec(
                 select(plugin_cls).where(plugin_cls.name == name)
             ).first()
-            
+
             if not db_plugin:
                 db_plugin = plugin_cls(
                     name=name,
                     version=version,
                     description=description,
                     author=author,
-                    enabled=True
+                    enabled=True,
                 )
                 session.add(db_plugin)
             else:
                 db_plugin.version = version
                 db_plugin.description = description
                 db_plugin.author = author
-            
+
         session.commit()
-        
+
         # Ensure PluginBase table exists
-        enabled_plugins = list(
-            session.exec(select(MetadataPluginTable).where(MetadataPluginTable.enabled == True)).all()
-        ) + list(
-            session.exec(select(IndexerPlugin).where(IndexerPlugin.enabled == True)).all()
-        ) + list(
-            session.exec(select(DownloadClientPlugin).where(DownloadClientPlugin.enabled == True)).all()
-        ) + list(
-            session.exec(select(GenericPlugin).where(GenericPlugin.enabled == True)).all()
+        enabled_plugins = (
+            list(
+                session.exec(
+                    select(MetadataPluginTable).where(
+                        MetadataPluginTable.enabled == True
+                    )
+                ).all()
+            )
+            + list(
+                session.exec(
+                    select(IndexerPlugin).where(IndexerPlugin.enabled == True)
+                ).all()
+            )
+            + list(
+                session.exec(
+                    select(DownloadClientPlugin).where(
+                        DownloadClientPlugin.enabled == True
+                    )
+                ).all()
+            )
+            + list(
+                session.exec(
+                    select(GenericPlugin).where(GenericPlugin.enabled == True)
+                ).all()
+            )
         )
-        
+
         for plugin in enabled_plugins:
             manifest_file = PLUGIN_DIR / plugin.name / "manifest.yaml"
             if manifest_file.exists():
@@ -93,11 +122,11 @@ async def lifespan(app: FastAPI):
                 # except Exception as e:
                 #     print(f"Failed to load plugin {plugin.name}: {e}")
 
-    
     scheduler.start()
     yield
     # Perform shutdown tasks
     scheduler.shutdown()
+
 
 app = FastAPI(
     title="LN Auto",
@@ -110,7 +139,7 @@ origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173"
+    "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
@@ -126,9 +155,26 @@ app.add_middleware(
 async def read_root():
     return {"Hello": "World"}
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.websocket("/ws/notifications")
+async def websocket_endpoint(websocket: WebSocket):
+    await notification_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # keep connection alive if needed
+    except WebSocketDisconnect:
+        notification_manager.disconnect(websocket)
+
+
+@app.post("/notify")
+async def notify_clients(message: NotificationMessage):
+    await notification_manager.broadcast(message)
+    return {"message": "Notifications sent"}
 
 
 app.include_router(core.router, prefix="/api/v1", tags=["core"])

@@ -10,7 +10,7 @@ from backend.core.services import metadata_service
 
 scheduler = AsyncIOScheduler()
 
-UPDATE_SERIES_INTERVAL_MINUTES = 60  # Update series every 60 minutes
+UPDATE_SERIES_INTERVAL_MINUTES = 6 * 60  # Update series every 6 hours
 
 ## TODO: Schedule to update series metadata periodically. Read series list, run fetch_series for each series.
 

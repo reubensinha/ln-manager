@@ -1,5 +1,5 @@
 # from __future__ import annotations
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
@@ -64,14 +64,22 @@ class LanguageCode(str, Enum):
 
 
 class DownloadStatus(str, Enum):
-    CONTINUING = "continuing"               ## All english books are downloaded and series is ongoing
-    CONTINUING_orig = "continuing_orig"     ## All books are downloaded and series is ongoing
-    COMPLETED = "completed"                 ## All books are downloaded and series is completed or cancelled
-    STALLED = "stalled"                     ## All books are downloaded and series is stalled/hiatus/unknown
-    MISSING = "missing"                     ## Some books are missing
-    NONE = "none"                           ## No books are downloaded
+    CONTINUING = "continuing"  ## All english books are downloaded and series is ongoing
+    CONTINUING_orig = (
+        "continuing_orig"  ## All books are downloaded and series is ongoing
+    )
+    COMPLETED = (
+        "completed"  ## All books are downloaded and series is completed or cancelled
+    )
+    STALLED = (
+        "stalled"  ## All books are downloaded and series is stalled/hiatus/unknown
+    )
+    MISSING = "missing"  ## Some books are missing
+    NONE = "none"  ## No books are downloaded
+
 
 # Create a reusable Literal type that includes None as a valid option
+
 
 class PublishingStatus(str, Enum):
     UNKNOWN = "unknown"
@@ -91,6 +99,30 @@ class ExternalLink(SQLModel):
 class StaffRole(SQLModel):
     name: str
     role: str
+
+
+class NotificationType(str, Enum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    SUCCESS = "SUCCESS"
+
+class NotificationMessage(SQLModel):
+    message: str
+    type: NotificationType = NotificationType.INFO
+
+
+################################################################################
+# Organizational Models
+################################################################################
+
+
+class Notification(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    message: str
+    type: NotificationType = Field(default=NotificationType.INFO)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    read: bool = Field(default=False)
 
 
 ################################################################################
@@ -205,9 +237,6 @@ class SeriesSearchResponse(SQLModel):
     orig_language: LanguageCode | None = None
     img_url: str | None = None
     nsfw_img: bool = False
-
-
-
 
 
 class SeriesDetailsResponse(SQLModel):
