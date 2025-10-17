@@ -20,6 +20,7 @@ function AddSeriesModal({
   onClose: () => void;
 }) {
   const [series, setSeries] = useState<SeriesSourceResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -28,6 +29,22 @@ function AddSeriesModal({
       });
     }
   }, [item, source]);
+
+    const handleAddSeries = async () => {
+    if (!series) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await addSeries(source, series.external_id);
+      onClose();
+    } catch (error) {
+      console.error("Error adding series:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   if (!series) {
     return <Text>Loading series...</Text>;
@@ -39,7 +56,7 @@ function AddSeriesModal({
         <SeriesInfo series={series} />
         <Divider my="md" />
         {/* TODO: Call API After API call do other procedures that are required as well. */}
-        <Button fullWidth mt="xl" onClick={() => {addSeries(source, series.external_id); onClose();}}>
+        <Button fullWidth mt="xl" onClick={handleAddSeries} loading={isLoading}>
           Add Series
         </Button>
       </Modal>
