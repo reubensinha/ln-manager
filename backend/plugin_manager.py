@@ -1,12 +1,7 @@
-# TODO: Implement plugin loading and management
-from ast import mod
+# TODO: Handle plugin name collisions.
 import subprocess
-import os
 import importlib
-import re
 import sys
-from fastapi import dependencies
-import yaml
 from pathlib import Path
 from typing import Dict, Type
 
@@ -21,6 +16,7 @@ class PluginManager:
         self.plugins: Dict[str, object] = {}  # name -> instance
 
     def install_dependencies(self, dependencies: list[str]):
+        ## TODO: Manage dependencies somehow.
         for dep in dependencies:
             subprocess.check_call([sys.executable, "-m", "pip", "install", dep])
 

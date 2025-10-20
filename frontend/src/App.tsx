@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
@@ -7,9 +7,11 @@ import '@mantine/spotlight/styles.css';
 
 import { MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
+import { Notifications } from '@mantine/notifications';
 import { BrowserRouter, Route, Routes } from "react-router";
 
 import Layout from "./components/Layout/Layout.tsx";
+import { websocketAPI } from "./api/websocket_api.ts";
 
 import NothingFoundBackground from "./notfound/notfound.tsx";
 
@@ -23,8 +25,24 @@ import CalendarPage from "./pages/CalendarPage.tsx";
 import { pluginManifests } from "./plugin-manifests";
 
 function App() {
+  const hasConnected = useRef(false);
+  
+  useEffect(() => {
+
+    if (!hasConnected.current) {
+      hasConnected.current = true;
+      websocketAPI.connect();
+    }
+
+    return () => {
+      websocketAPI.disconnect();
+    };
+  }, []);
+
+
   return (
     <MantineProvider defaultColorScheme="auto">
+      <Notifications />
       <ModalsProvider>
         <BrowserRouter>
           <Layout>

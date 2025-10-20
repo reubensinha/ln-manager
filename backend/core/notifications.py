@@ -21,6 +21,7 @@ class NotificationManager:
         self.active_connections.remove(websocket)
 
     async def broadcast(self, notification: NotificationMessage) -> None:
+        print(f"Broadcasting notification: {notification.message}")
         with Session(engine) as session:
             notif = Notification(
                 message=notification.message,
