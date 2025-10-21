@@ -1,6 +1,7 @@
 # from __future__ import annotations
 from datetime import date, datetime
 from enum import Enum
+from re import U
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
 
@@ -118,7 +119,7 @@ class NotificationMessage(SQLModel):
 
 
 class Notification(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
     message: str
     type: NotificationType = Field(default=NotificationType.INFO)
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)

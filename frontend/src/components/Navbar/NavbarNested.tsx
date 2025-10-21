@@ -65,6 +65,7 @@ const coreLinkGroup: NavLink[] = [
     label: "System",
     icon: TbPresentationAnalytics,
     links: [
+      { label: "Notifications", link: "/system/notifications" },
       { label: "Status", link: "/system/status" },
       { label: "Tasks", link: "/system/tasks" },
       { label: "Events", link: "/system/events" },

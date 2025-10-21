@@ -144,3 +144,12 @@ export type PluginResponse = {
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
 };
+
+
+export type Notification = {
+  id: string;
+  message: string;
+  type: "INFO" | "WARNING" | "ERROR" | "SUCCESS";
+  timestamp: string; // ISO 8601 date string
+  read: boolean;
+}

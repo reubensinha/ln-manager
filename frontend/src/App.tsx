@@ -4,6 +4,7 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import '@mantine/spotlight/styles.css';
+import 'mantine-datatable/styles.layer.css';
 
 import { MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
@@ -20,6 +21,7 @@ import SeriesPage from "./pages/SeriesPage.tsx";
 import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
 import CalendarPage from "./pages/CalendarPage.tsx";
+import NotificationsPage from "./pages/System/NotificationsPage.tsx";
 // import Vite from "./Vite.tsx";
 
 import { pluginManifests } from "./plugin-manifests";
@@ -54,6 +56,7 @@ function App() {
               <Route path="/search/:source" element={<Search />} />
               <Route path="/search/:source/:query" element={<Search />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/system/notifications" element={<NotificationsPage />} />
               <Route path="*" element={<NothingFoundBackground />} />
 
               {/* Plugin Routes */}

@@ -1,7 +1,14 @@
-import axios from 'axios';
-import type { SearchSeriesResponse, SeriesGroupsResponse, PluginResponse, SeriesSourceResponse, Release } from './ApiResponse';
-import type { Book, Series } from '../api/ApiResponse';
-
+import axios from "axios";
+import type {
+  Book,
+  Series,
+  SearchSeriesResponse,
+  SeriesGroupsResponse,
+  PluginResponse,
+  SeriesSourceResponse,
+  Release,
+  Notification,
+} from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
 
@@ -12,10 +19,13 @@ const api = axios.create({
   baseURL: baseURL,
 });
 
-export async function searchSeries(query: string, source: string): Promise<SearchSeriesResponse[]> {
+export async function searchSeries(
+  query: string,
+  source: string
+): Promise<SearchSeriesResponse[]> {
   try {
     const response = await api.get(`/search`, {
-      params: { query, source },  
+      params: { query, source },
     });
     return response.data;
   } catch (error) {
@@ -24,9 +34,17 @@ export async function searchSeries(query: string, source: string): Promise<Searc
   }
 }
 
-export async function addSeries(source: string, external_id: string, series_group: string | null = null): Promise<{ success: boolean; message: string }> {
+export async function addSeries(
+  source: string,
+  external_id: string,
+  series_group: string | null = null
+): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await api.post(`/add/series`, { source, external_id, series_group });
+    const response = await api.post(`/add/series`, {
+      source,
+      external_id,
+      series_group,
+    });
     return response.data;
   } catch (error) {
     console.error("Error adding series:", error);
@@ -45,8 +63,9 @@ export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
   }
 }
 
-
-export async function getSeriesGroupById(id: string): Promise<SeriesGroupsResponse | null> {
+export async function getSeriesGroupById(
+  id: string
+): Promise<SeriesGroupsResponse | null> {
   // Placeholder function to simulate fetching series groups from an API
   try {
     const response = await api.get(`/series-groups/${id}`);
@@ -57,7 +76,7 @@ export async function getSeriesGroupById(id: string): Promise<SeriesGroupsRespon
   }
 }
 
-export async function getSeries() : Promise<Series[]> {
+export async function getSeries(): Promise<Series[]> {
   // Placeholder function to simulate fetching series data from an API
   try {
     const response = await api.get(`/series`);
@@ -79,7 +98,10 @@ export async function getSeriesById(id: string): Promise<Series | null> {
   }
 }
 
-export async function getSeriesFromSource(source: string, external_id: string): Promise<SeriesSourceResponse | null> {
+export async function getSeriesFromSource(
+  source: string,
+  external_id: string
+): Promise<SeriesSourceResponse | null> {
   // Placeholder function to simulate fetching series data from an external source
   try {
     const response = await api.get(`/series_details/${source}`, {
@@ -89,7 +111,7 @@ export async function getSeriesFromSource(source: string, external_id: string): 
   } catch (error) {
     console.error("Error searching series:", error);
     return null;
-  } 
+  }
 }
 
 export async function getBookByID(id: string): Promise<Book | null> {
@@ -113,7 +135,9 @@ export async function getReleases(): Promise<Release[]> {
   }
 }
 
-export async function toggleBookDownloaded(bookId: string): Promise<{ status: string } | null> {
+export async function toggleBookDownloaded(
+  bookId: string
+): Promise<{ status: string } | null> {
   try {
     const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
     return response.data;
@@ -123,7 +147,9 @@ export async function toggleBookDownloaded(bookId: string): Promise<{ status: st
   }
 }
 
-export async function toggleBookMonitored(bookId: string): Promise<{ status: string } | null> {
+export async function toggleBookMonitored(
+  bookId: string
+): Promise<{ status: string } | null> {
   try {
     const response = await api.patch(`/toggle-book-monitored/${bookId}`);
     return response.data;
@@ -133,7 +159,9 @@ export async function toggleBookMonitored(bookId: string): Promise<{ status: str
   }
 }
 
-export async function toggleSeriesDownloaded(seriesId: string): Promise<{ status: string } | null> {
+export async function toggleSeriesDownloaded(
+  seriesId: string
+): Promise<{ status: string } | null> {
   try {
     const response = await api.patch(`/toggle-series-downloaded/${seriesId}`);
     return response.data;
@@ -143,7 +171,9 @@ export async function toggleSeriesDownloaded(seriesId: string): Promise<{ status
   }
 }
 
-export async function toggleSeriesMonitored(seriesId: string): Promise<{ status: string } | null> {
+export async function toggleSeriesMonitored(
+  seriesId: string
+): Promise<{ status: string } | null> {
   try {
     const response = await api.patch(`/toggle-series-monitored/${seriesId}`);
     return response.data;
@@ -183,4 +213,14 @@ export async function getPlugins(): Promise<PluginResponse[]> {
       ],
     },
   ];
+}
+
+export async function getNotifications(): Promise<Notification[]> {
+  try {
+    const response = await api.get(`/system/notifications`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return [];
+  }
 }

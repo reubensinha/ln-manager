@@ -25,7 +25,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata
+from .api.v1 import core, metadata, system
 
 scheduler = AsyncIOScheduler()
 scheduler.add_job(
@@ -179,3 +179,4 @@ async def notify_clients(message: NotificationMessage):
 
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
+app.include_router(system.router, prefix="/api/v1", tags=["system"])
