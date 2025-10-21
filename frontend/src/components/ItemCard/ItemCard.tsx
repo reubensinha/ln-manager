@@ -30,7 +30,6 @@ function ItemCard({ item }: { item: CardItem }) {
           <Image src={item.img_url} alt={item.title} fit="contain" />
         </Card.Section>
 
-        {/* TODO: Add dynamic Color Strip Section */}
         <Card.Section style={{ backgroundColor: stripColor[String(item.downloaded)] || "red", height: barVisible }} />
 
         <Card.Section className={classes.footer}>

@@ -254,7 +254,7 @@ class SeriesDetailsResponse(SQLModel):
     publishing_status: PublishingStatus | None = None
     external_links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     start_date: date | None = None
-    end_date: date | None = None  ## TODO: Standardize date format
+    end_date: date | None = None
     publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
     authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
     artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
@@ -418,7 +418,7 @@ class SeriesBase(SQLModel):
     publishing_status: PublishingStatus | None = None
     external_links: list[dict] | None = Field(default=None, sa_column=Column(JSON))
     start_date: date | None = None
-    end_date: date | None = None  ## TODO: Standardize date format
+    end_date: date | None = None
     publishers: list[str] | None = Field(default=None, sa_column=Column(JSON))
     authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
     artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
@@ -515,7 +515,7 @@ class BookBase(SQLModel):
     img_url: str | None = None
     language: LanguageCode | None = None
     orig_language: LanguageCode | None = None
-    release_date: date | None = None  ## TODO: Standardize date format
+    release_date: date | None = None
     authors: list[str] | None = Field(default=None, sa_column=Column(JSON))
     artists: list[str] | None = Field(default=None, sa_column=Column(JSON))
     other_staff: list[dict] | None = Field(default=None, sa_column=Column(JSON))

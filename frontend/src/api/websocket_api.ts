@@ -1,6 +1,5 @@
 import { notifications } from "@mantine/notifications";
 
-// TODO: Connect to websocket as "ws/notifications" and establish handlers for incoming messages with Mantine notifications
 interface NotificationPayload {
   message: string;
   type: "info" | "success" | "warning" | "error";

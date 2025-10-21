@@ -73,7 +73,6 @@ function ReleasesTable({ releases }: { releases: Release[] }) {
             </Group>
           </UnstyledButton>
 
-          {/* TODO: But the little turning arrow thing on the collapse button text */}
           <Collapse in={opened[language]}>
             {releases.map((release) => (
               <Group key={release.id}>

@@ -10,9 +10,8 @@ from backend.core.services import metadata_service
 
 scheduler = AsyncIOScheduler()
 
+## TODO: Make interval configurable once configs are implemented
 UPDATE_SERIES_INTERVAL_MINUTES = 6 * 60  # Update series every 6 hours
-
-## TODO: Schedule to update series metadata periodically. Read series list, run fetch_series for each series.
 
 async def update_all_series_metadata():
     print("Updating all series metadata...")

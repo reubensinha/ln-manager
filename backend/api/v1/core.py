@@ -85,7 +85,6 @@ async def toggle_download_status(*, session: Session = Depends(get_session), boo
     book.downloaded = not book.downloaded
     session.add(book)
     
-    # TODO: Update series download status if needed
     series = session.get(Series, book.series_id)
     if not series:
         # This case should ideally not happen if data integrity is maintained
