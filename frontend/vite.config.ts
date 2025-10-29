@@ -19,6 +19,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: false,
       },
+      '/redoc': {
+        target: 'http://localhost:8000',
+        changeOrigin: false,
+      },
       '/openapi.json': {
         target: 'http://localhost:8000',
         changeOrigin: false,
