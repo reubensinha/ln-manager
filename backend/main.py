@@ -1,4 +1,10 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import os
+import sys
+import time
+import asyncio
+from pathlib import Path
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -151,12 +157,12 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/api")
 async def read_root():
     return {"Hello": "World"}
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
 
@@ -171,11 +177,60 @@ async def websocket_endpoint(websocket: WebSocket):
         notification_manager.disconnect(websocket)
 
 
-@app.post("/notify")
+@app.post("/api/v1/notify")
 async def notify_clients(message: NotificationMessage):
     await notification_manager.broadcast(message)
     return {"message": "Notifications sent"}
 
+
+def restart_server():
+    """
+    Restart the server. Method depends on how it's running.
+    TODO: Test in production.
+    """
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Initiating restart...")
+    
+    # Try to touch file for uvicorn --reload
+    try:
+        Path(__file__).touch()
+        print("Triggered uvicorn auto-reload")
+    except Exception as e:
+        print(f"Could not trigger auto-reload: {e}")
+        # Fallback to exec
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
+## TODO: Endpoint to restart backend server
+@app.post("/api/v1/restart")
+async def restart_backend(background_tasks: BackgroundTasks):
+    """
+    Restart the backend server.
+    
+    This endpoint schedules a server restart as a background task.
+    The server will shut down gracefully and restart with the same arguments.
+    
+    Note: This works best when the server is run with a process manager
+    (like systemd, supervisor, or PM2) that can automatically restart it.
+    """
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Restart endpoint called")
+    
+    await notification_manager.broadcast(
+        NotificationMessage(
+            message="Backend server is restarting..."
+        )
+    )
+    
+    async def delayed_restart():
+        await asyncio.sleep(1)
+        restart_server()
+    
+    # Schedule restart as background task to allow response to be sent
+    background_tasks.add_task(delayed_restart)
+    
+    return {
+        "success": True,
+        "message": "Backend server restart initiated"
+    }
 
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
