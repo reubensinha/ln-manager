@@ -22,6 +22,7 @@ import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
 import CalendarPage from "./pages/CalendarPage.tsx";
 import NotificationsPage from "./pages/System/NotificationsPage.tsx";
+import PluginsPage from "./pages/Settings/PluginsPage.tsx";
 // import Vite from "./Vite.tsx";
 
 import { pluginManifests } from "./plugin-manifests";
@@ -55,7 +56,11 @@ function App() {
               <Route path="/book/:bookID" element={<BookPage />} />
               <Route path="/search/:source" element={<Search />} />
               <Route path="/search/:source/:query" element={<Search />} />
+
               <Route path="/calendar" element={<CalendarPage />} />
+
+              <Route path="/settings/plugins" element={<PluginsPage />} />
+
               <Route path="/system/notifications" element={<NotificationsPage />} />
               <Route path="*" element={<NothingFoundBackground />} />
 

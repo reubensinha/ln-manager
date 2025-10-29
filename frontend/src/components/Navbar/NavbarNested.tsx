@@ -14,6 +14,9 @@ import { useLocation } from "react-router";
 
 import { type NavLink } from "../../types/NavLink";
 
+// TODO: Don't use pluginManifests. Instead, parse from getPlugins API call.
+//       For routes[].path and navbarLinks[].link prepend "/plugins/{plugin.name}".
+
 const pluginList = await getPlugins();
 
 const isIndexerPlugin = pluginList?.some((p) => p.type === "indexer") ?? false;

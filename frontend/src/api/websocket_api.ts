@@ -18,7 +18,7 @@ class WebSocketAPI {
     private reconnectDelay = 3000; // 3 seconds
 
     connect() {
-        const wsUrl = "ws://localhost:8000/ws/notifications";
+        const wsUrl = "/ws/notifications";
 
         try {
             this.ws = new WebSocket(wsUrl);

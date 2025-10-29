@@ -198,21 +198,28 @@ export async function getPlugins(): Promise<PluginResponse[]> {
       name: "Plugin 1",
       type: "generic",
       version: "0.1.0",
-      routes: [
-        {
-          path: "/plugin/plugin1",
-          component: "Plugin1",
-        },
-      ],
-      navbarLinks: [
-        {
-          label: "Plugin 1 Link",
-          icon: "TbGauge",
-          link: "/plugin/plugin1",
-        },
-      ],
     },
   ];
+}
+
+export async function uploadPlugin(
+  file: File
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const formData = new FormData();
+    formData.append("plugin", file);
+
+    const response = await api.post(`/plugins/install`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading plugin:", error);
+    return { success: false, message: "Failed to upload plugin." };
+  }
 }
 
 export async function getNotifications(): Promise<Notification[]> {
@@ -222,5 +229,15 @@ export async function getNotifications(): Promise<Notification[]> {
   } catch (error) {
     console.error("Error fetching notifications:", error);
     return [];
+  }
+}
+
+export async function restartBackend(): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.post(`/restart`);
+    return response.data;
+  } catch (error) {
+    console.error("Error restarting backend:", error);
+    return { success: false, message: "Failed to restart backend." };
   }
 }

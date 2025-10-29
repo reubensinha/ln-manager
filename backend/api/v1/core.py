@@ -1,11 +1,11 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlmodel import Session, select
 from uuid import UUID
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
-from backend.api.v1.utils import _update_download_status
+from backend.api.v1.utils import _install_plugin_util, _update_download_status
 from backend.core.database.models import *
 from backend.core.database.database import get_session
 from backend.plugin_manager import plugin_manager
@@ -71,20 +71,24 @@ async def read_book(*, session: Session = Depends(get_session), book_id: UUID):
         raise HTTPException(status_code=404, detail="Book not found")
     return book
 
+
 @router.get("/releases", response_model=list[ReleasePublicSimple])
 async def read_release_list(*, session: Session = Depends(get_session)):
     releases = session.exec(select(Release)).all()
     return releases
 
+
 @router.patch("/toggle-book-downloaded/{book_id}", response_model=dict[str, str])
-async def toggle_download_status(*, session: Session = Depends(get_session), book_id: UUID):
+async def toggle_download_status(
+    *, session: Session = Depends(get_session), book_id: UUID
+):
     book = session.get(Book, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
     book.downloaded = not book.downloaded
     session.add(book)
-    
+
     series = session.get(Series, book.series_id)
     if not series:
         # This case should ideally not happen if data integrity is maintained
@@ -95,8 +99,11 @@ async def toggle_download_status(*, session: Session = Depends(get_session), boo
     session.commit()
     return {"status": "success"}
 
+
 @router.patch("/toggle-book-monitored/{book_id}", response_model=dict[str, str])
-async def toggle_monitor_status(*, session: Session = Depends(get_session), book_id: UUID):
+async def toggle_monitor_status(
+    *, session: Session = Depends(get_session), book_id: UUID
+):
     book = session.get(Book, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -106,13 +113,16 @@ async def toggle_monitor_status(*, session: Session = Depends(get_session), book
     session.commit()
     return {"status": "success"}
 
+
 @router.patch("/toggle-series-downloaded/{series_id}", response_model=dict[str, str])
-async def toggle_series_download_status(*, session: Session = Depends(get_session), series_id: UUID):
+async def toggle_series_download_status(
+    *, session: Session = Depends(get_session), series_id: UUID
+):
     series = session.get(Series, series_id)
     if not series:
         raise HTTPException(status_code=404, detail="Series not found")
     # Toggle the downloaded status of all books in the series
-    
+
     target_status = any(not book.downloaded for book in series.books)
 
     for book in series.books:
@@ -120,13 +130,15 @@ async def toggle_series_download_status(*, session: Session = Depends(get_sessio
         session.add(book)
 
     _update_download_status(session, series)
-        
+
     session.commit()
     return {"status": "success"}
 
 
 @router.patch("/toggle-series-monitored/{series_id}", response_model=dict[str, str])
-async def toggle_series_monitor_status(*, session: Session = Depends(get_session), series_id: UUID):
+async def toggle_series_monitor_status(
+    *, session: Session = Depends(get_session), series_id: UUID
+):
     series = session.get(Series, series_id)
     if not series:
         raise HTTPException(status_code=404, detail="Series not found")
@@ -138,3 +150,7 @@ async def toggle_series_monitor_status(*, session: Session = Depends(get_session
         session.add(book)
     session.commit()
     return {"status": "success"}
+
+@router.post("/install-plugin", response_model=dict[str, str])
+async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)):
+    return await _install_plugin_util(file, session)
