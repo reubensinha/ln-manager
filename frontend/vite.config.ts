@@ -9,7 +9,20 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-      }
+      },
+      '/ws': {
+        target: 'ws://localhost:8000',
+        changeOrigin: true,
+        ws: true,
+      },
+      '/docs': {
+        target: 'http://localhost:8000',
+        changeOrigin: false,
+      },
+      '/openapi.json': {
+        target: 'http://localhost:8000',
+        changeOrigin: false,
+      },
     }
   }
 })
