@@ -7,17 +7,24 @@ import {
   Group,
   Stack,
   Modal,
+  ActionIcon,
 } from "@mantine/core";
 
-import { getPlugins, uploadPlugin, restartBackend } from "../../api/api";
+import {
+  getPlugins,
+  uploadPlugin,
+  deletePlugin,
+  restartBackend,
+} from "../../api/api";
 import type { PluginResponse } from "../../api/ApiResponse";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
-import { TbAlertCircle } from "react-icons/tb";
+import { TbAlertCircle, TbTrash } from "react-icons/tb";
 
 function PluginsPage() {
   const [plugins, setPlugins] = useState<PluginResponse[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [restartModalOpened, setRestartModalOpened] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
@@ -101,6 +108,38 @@ function PluginsPage() {
     }
   };
 
+  const handleUninstallPlugin = async (plugin: PluginResponse) => {
+    if (!plugin) return;
+
+    setDeleting(true);
+
+    try {
+      const result = await deletePlugin(plugin.id);
+
+      if (result.success) {
+        notifications.show({
+          title: "Success",
+          message: result.message || "Plugin uninstalled successfully.",
+          color: "green",
+        });
+      } else {
+        notifications.show({
+          title: "Error",
+          message: result.message || "Failed to uninstall plugin.",
+          color: "red",
+        });
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: `Failed to uninstall plugin: ${error}`,
+        color: "red",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <Stack>
@@ -120,6 +159,21 @@ function PluginsPage() {
             { accessor: "version", title: "Version" },
             { accessor: "description", title: "Description" },
             { accessor: "type", title: "Type" },
+            {
+              accessor: "actions",
+              title: "Actions",
+              textAlign: "right",
+              render: (plugin) => (
+                <ActionIcon
+                  color="red"
+                  variant="subtle"
+                  onClick={() => handleUninstallPlugin(plugin)}
+                  loading={deleting}
+                >
+                  <TbTrash size={16} />
+                </ActionIcon>
+              ),
+            },
           ]}
           records={plugins}
         />

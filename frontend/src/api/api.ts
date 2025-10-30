@@ -222,6 +222,18 @@ export async function uploadPlugin(
   }
 }
 
+export async function deletePlugin(
+  pluginId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/plugins/${pluginId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting plugin:", error);
+    return { success: false, message: "Failed to delete plugin." };
+  }
+}
+
 export async function getNotifications(): Promise<Notification[]> {
   try {
     const response = await api.get(`/system/notifications`);
@@ -232,7 +244,10 @@ export async function getNotifications(): Promise<Notification[]> {
   }
 }
 
-export async function restartBackend(): Promise<{ success: boolean; message: string }> {
+export async function restartBackend(): Promise<{
+  success: boolean;
+  message: string;
+}> {
   try {
     const response = await api.post(`/restart`);
     return response.data;

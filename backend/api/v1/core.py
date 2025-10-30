@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from uuid import UUID
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
-from backend.api.v1.utils import _install_plugin_util, _update_download_status
+from backend.api.v1.utils import _install_plugin_util, _uninstall_plugin_util, _update_download_status
 from backend.core.database.models import *
 from backend.core.database.database import get_session
 from backend.plugin_manager import plugin_manager
@@ -154,3 +154,8 @@ async def toggle_series_monitor_status(
 @router.post("/install-plugin", response_model=dict[str, str])
 async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)):
     return await _install_plugin_util(file, session)
+
+@router.delete("/plugins/{plugin_id}", response_model=dict[str, str])
+async def uninstall_plugin(*, plugin_id: UUID, session: Session = Depends(get_session)):
+    return await _uninstall_plugin_util(plugin_id, session)
+

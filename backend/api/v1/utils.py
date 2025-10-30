@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from datetime import date
 from tempfile import TemporaryDirectory
+from uuid import UUID
 
 from backend.core.database.models import (
     Book,
@@ -15,6 +16,10 @@ from backend.core.database.models import (
     Series,
     SeriesGroup,
     LanguageCode,
+    MetadataPluginTable,
+    GenericPlugin,
+    IndexerPlugin,
+    DownloadClientPlugin,
 )
 
 
@@ -150,6 +155,20 @@ def _update_download_status(session: Session, series: Series):
         session.add(series_group)
 
 
+## TODO: For install/uninstall plugin helpers. Paths for frontend and backend directories don't seem to be correct.
+# Project structure is:
+#       /
+#       |-- backend/
+#            |-- main.py          <-- fastapi entry point
+#            |-- api/v1/utils.py  <-- this file
+#            |-- plugins/
+#                   |-- <plugin_name>/
+#       |-- frontend/
+#            |-- src/
+#                 |-- plugins/
+#                        |-- <plugin_name>/
+
+
 async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, str]:
     # Validate .lna structure and manifest.yaml
     # Manage dependencies
@@ -228,8 +247,10 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
         plugin_name = manifest["name"]
         plugin_root = manifest_path.parent
 
-        backend_plugins_dir = Path("./backend/plugins")
-        frontend_plugins_dir = Path("./frontend/src/plugins")
+        # Get absolute paths relative to project root
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        backend_plugins_dir = project_root / "backend" / "plugins"
+        frontend_plugins_dir = project_root / "frontend" / "src" / "plugins"
 
         plugin_backend_dest = backend_plugins_dir / plugin_name
         plugin_frontend_dest = frontend_plugins_dir / plugin_name
@@ -279,4 +300,79 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
     return {
         "status": "success",
         "message": f"Plugin '{plugin_name}' version {manifest['version']} installed successfully.",
+    }
+
+
+async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str, str]:
+    plugin = None
+    plugin_type = None
+
+    plugin = session.get(MetadataPluginTable, plugin_id)
+    if plugin:
+        plugin_type = "metadata"
+
+    if not plugin:
+        plugin = session.get(GenericPlugin, plugin_id)
+        if plugin:
+            plugin_type = "generic"
+
+    if not plugin:
+        plugin = session.get(IndexerPlugin, plugin_id)
+        if plugin:
+            plugin_type = "indexer"
+
+    if not plugin:
+        plugin = session.get(DownloadClientPlugin, plugin_id)
+        if plugin:
+            plugin_type = "download client"
+
+    if not plugin:
+        raise HTTPException(
+            status_code=404, detail=f"Plugin with ID {plugin_id} not found"
+        )
+
+    plugin_name = plugin.name
+
+    # Get absolute paths relative to project root
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    backend_plugins_dir = project_root / "backend" / "plugins"
+    frontend_plugins_dir = project_root / "frontend" / "src" / "plugins"
+
+    plugin_backend_path = backend_plugins_dir / plugin_name
+    plugin_frontend_path = frontend_plugins_dir / plugin_name
+
+    # Remove backend directory
+    if plugin_backend_path.exists():
+        try:
+            shutil.rmtree(plugin_backend_path)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to remove backend plugin files: {str(e)}",
+            )
+
+    # Remove frontend directory if it exists
+    if plugin_frontend_path.exists():
+        try:
+            shutil.rmtree(plugin_frontend_path)
+        except Exception as e:
+            # Attempt to restore backend if frontend deletion fails
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to remove frontend plugin files: {str(e)}",
+            )
+
+    # Remove plugin from database
+    try:
+        session.delete(plugin)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Failed to remove plugin from database: {str(e)}"
+        )
+
+    return {
+        "status": "success",
+        "message": f"Plugin '{plugin_name}' uninstalled successfully.",
     }
