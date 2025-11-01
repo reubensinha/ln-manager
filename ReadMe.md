@@ -8,7 +8,7 @@ A modern web application for managing your light novel collection with automatic
 - **Release Calendar**: Never miss a release with month and week calendar views
 - **Metadata Handling**: Fetch series/book information, cover images, and release dates from various sources automatically using plugins.
 
-## 📸 Screenshots
+## Screenshots
 
 *[Screenshots coming soon]*
 
