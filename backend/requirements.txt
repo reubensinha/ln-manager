@@ -1,7 +1,5 @@
-asyncio
 fastapi
 httpx
-pydantic
 sqlalchemy
 uvicorn
 sqlmodel
@@ -11,3 +9,4 @@ pyrate-limiter
 nest-asyncio
 filelock
 apscheduler
+anyio
