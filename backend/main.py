@@ -27,6 +27,7 @@ from backend.plugin_manager import PluginManager, PLUGIN_DIR, plugin_manager
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
+    check_release_day,
     update_all_series_metadata,
 )
 
@@ -39,6 +40,7 @@ scheduler.add_job(
     "interval",
     minutes=UPDATE_SERIES_INTERVAL_MINUTES,
 )
+scheduler.add_job(check_release_day, "cron", hour=0, minute=0)
 
 
 @asynccontextmanager
@@ -189,7 +191,7 @@ def restart_server():
     TODO: Test in production.
     """
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Initiating restart...")
-    
+
     # Try to touch file for uvicorn --reload
     try:
         Path(__file__).touch()
@@ -200,37 +202,34 @@ def restart_server():
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
+
 ## TODO: Endpoint to restart backend server
 @app.post("/api/v1/restart")
 async def restart_backend(background_tasks: BackgroundTasks):
     """
     Restart the backend server.
-    
+
     This endpoint schedules a server restart as a background task.
     The server will shut down gracefully and restart with the same arguments.
-    
+
     Note: This works best when the server is run with a process manager
     (like systemd, supervisor, or PM2) that can automatically restart it.
     """
     print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Restart endpoint called")
-    
+
     await notification_manager.broadcast(
-        NotificationMessage(
-            message="Backend server is restarting..."
-        )
+        NotificationMessage(message="Backend server is restarting...")
     )
-    
+
     async def delayed_restart():
         await asyncio.sleep(1)
         restart_server()
-    
+
     # Schedule restart as background task to allow response to be sent
     background_tasks.add_task(delayed_restart)
-    
-    return {
-        "success": True,
-        "message": "Backend server restart initiated"
-    }
+
+    return {"success": True, "message": "Backend server restart initiated"}
+
 
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
