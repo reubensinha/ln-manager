@@ -1,0 +1,20 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.17.1",
+    "anyio>=4.11.0",
+    "apscheduler>=3.11.1",
+    "fastapi[standard]>=0.121.0",
+    "filelock>=3.20.0",
+    "httpx>=0.28.1",
+    "nest-asyncio>=1.6.0",
+    "pyrate-limiter>=3.9.0",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.0.44",
+    "sqlmodel>=0.0.27",
+    "uvicorn>=0.38.0",
+]
