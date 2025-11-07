@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from uuid import uuid4
 from urllib.parse import quote
+from typing import Any
+from pathlib import Path as PathlibPath
 
 from anyio import Path
 from backend.core.database.models import (
@@ -16,6 +18,7 @@ from backend.core.plugins.metadata import (
     SeriesFetchModel,
 )
 from .ranobedb_api import IMAGE_BASE_URL, download_image, get_series, get_series_by_id, get_book_by_id
+from . import rate_limiter
 
 
 class RanobeDBPlugin(MetadataPlugin):
@@ -26,11 +29,20 @@ class RanobeDBPlugin(MetadataPlugin):
     description = "Metadata plugin for RanobeDB"
     enabled = True
     _base_img_url = IMAGE_BASE_URL
-    
-    PLUGIN_DIR = Path(__file__).parent
-    IMG_DIR = "data/img"
 
     IMG_API_URL = f"/api/v1/image/{name}"
+    
+    def __init__(self, **kwargs: Any):
+        # Call parent to set up data_dir (pathlib.Path)
+        super().__init__(**kwargs)
+        
+        # Set up image directory within plugin data directory (use anyio.Path for async operations)
+        self.img_dir = Path(str(self.data_dir / "img"))
+        self.img_dir_pathlib = self.data_dir / "img"  # Keep pathlib version for relative_to
+        self.img_dir_pathlib.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize rate limiter with the plugin's data directory
+        rate_limiter._init_limiter(str(self.data_dir))
 
     @staticmethod
     def _determine_title(lang: str, response: dict) -> str:
@@ -284,10 +296,10 @@ class RanobeDBPlugin(MetadataPlugin):
         if books := series_details.get("books"):
             if books[0] and (image := books[0].get("image")):
                 img_filename = image.get("filename")
-                img_path = await download_image(img_filename, dest_path=(self.PLUGIN_DIR / self.IMG_DIR))
+                img_path = await download_image(img_filename, dest_path=self.img_dir)
                 if img_path:
-                    # Get the relative path from plugin dir and URL-encode it
-                    relative_path = Path(img_path).relative_to(self.PLUGIN_DIR)
+                    # Get the relative path from data dir and URL-encode it
+                    relative_path = PathlibPath(img_path).relative_to(self.data_dir)
                     encoded_path = quote(str(relative_path), safe='')
                     img_api = f"{self.IMG_API_URL}/{encoded_path}"
                 nsfw_img = image.get("nsfw", False)
@@ -411,10 +423,10 @@ class RanobeDBPlugin(MetadataPlugin):
             
 
             img_filename = book_detail.get("image", {}).get("filename")
-            img_path = await download_image(img_filename, (self.PLUGIN_DIR / self.IMG_DIR)) if img_filename else None
+            img_path = await download_image(img_filename, self.img_dir) if img_filename else None
             if img_path:
-                # Get the relative path from plugin dir and URL-encode it
-                relative_path = Path(img_path).relative_to(self.PLUGIN_DIR)
+                # Get the relative path from data dir and URL-encode it
+                relative_path = PathlibPath(img_path).relative_to(self.data_dir)
                 encoded_path = quote(str(relative_path), safe='')
                 img_api = f"{self.IMG_API_URL}/{encoded_path}"
             else:

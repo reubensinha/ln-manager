@@ -17,10 +17,12 @@ from pyrate_limiter import Limiter, Rate, Duration, SQLiteBucket, InMemoryBucket
 # Global rate: 60 requests per minute
 REQUEST_RATE = Rate(60, Duration.MINUTE)
 
-# SQLite DB path for persistence (must be writable by all workers - check permissions!)
-_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# SQLite DB path for persistence - will be set by the plugin instance
+# Default to local data directory for module-level initialization
+_DEFAULT_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+_DATA_DIR = _DEFAULT_DATA_DIR
 SQLITE_DB_PATH = os.path.join(_DATA_DIR, "pyrate_limiter_global.sqlite")
-os.makedirs(os.path.dirname(SQLITE_DB_PATH), exist_ok=True)
+os.makedirs(_DATA_DIR, exist_ok=True)
 
 # Key for all calls (all functions using this key share the same global limit)
 LIMIT_ITEM_NAME = "RanobeDB_api_call"
@@ -29,38 +31,50 @@ LIMIT_ITEM_NAME = "RanobeDB_api_call"
 # 2. Initialize Global Limiter (Using idiomatic process-safe initialization)
 # -------------------------
 
-try:
-    # Use init_from_file to properly handle file locking for multi-process safety
-    # CRITICAL: use_file_lock=True enables cross-process coordination via FileLock
-    sqlite_bucket = SQLiteBucket.init_from_file(
-        rates=[REQUEST_RATE],
-        table="rate_limiter",
-        db_path=SQLITE_DB_PATH,
-        create_new_table=True,
-        use_file_lock=True,  # CRITICAL: Enables process-safe concurrent access
-    )
+def _init_limiter(data_dir: str | None = None):
+    """Initialize or reinitialize the global rate limiter with a new data directory."""
+    global GLOBAL_LIMITER, SQLITE_DB_PATH, _DATA_DIR
+    
+    if data_dir:
+        _DATA_DIR = data_dir
+        SQLITE_DB_PATH = os.path.join(_DATA_DIR, "pyrate_limiter_global.sqlite")
+        os.makedirs(_DATA_DIR, exist_ok=True)
+    
+    try:
+        # Use init_from_file to properly handle file locking for multi-process safety
+        # CRITICAL: use_file_lock=True enables cross-process coordination via FileLock
+        sqlite_bucket = SQLiteBucket.init_from_file(
+            rates=[REQUEST_RATE],
+            table="rate_limiter",
+            db_path=SQLITE_DB_PATH,
+            create_new_table=True,
+            use_file_lock=True,  # CRITICAL: Enables process-safe concurrent access
+        )
 
-    GLOBAL_LIMITER = Limiter(
-        sqlite_bucket,
-        raise_when_fail=False,  # Don't raise, use delay mechanism instead
-        max_delay=Duration.HOUR,  # Wait indefinitely until slot is available
-    )
-    print(f"[INFO] Rate Limiter initialized with SQLite backend at {SQLITE_DB_PATH}")
-    print(f"[INFO] File locking enabled for multi-process safety")
+        GLOBAL_LIMITER = Limiter(
+            sqlite_bucket,
+            raise_when_fail=False,  # Don't raise, use delay mechanism instead
+            max_delay=Duration.HOUR,  # Wait indefinitely until slot is available
+        )
+        print(f"[INFO] Rate Limiter initialized with SQLite backend at {SQLITE_DB_PATH}")
+        print(f"[INFO] File locking enabled for multi-process safety")
 
-except ImportError as e:
-    print(f"[ERROR] filelock package required for multi-process rate limiting: {e}")
-    print(f"[ERROR] Install with: pip install filelock")
-    raise
-except Exception as e:
-    print(f"[WARN] SQLite limiter init failed, falling back to in-memory: {e}")
-    # Fallback to a non-persistent, in-memory limiter (Warning: Not global across processes!)
-    memory_bucket = InMemoryBucket([REQUEST_RATE])
-    GLOBAL_LIMITER = Limiter(
-        memory_bucket,
-        raise_when_fail=False,
-        max_delay=Duration.HOUR,
-    )
+    except ImportError as e:
+        print(f"[ERROR] filelock package required for multi-process rate limiting: {e}")
+        print(f"[ERROR] Install with: pip install filelock")
+        raise
+    except Exception as e:
+        print(f"[WARN] SQLite limiter init failed, falling back to in-memory: {e}")
+        # Fallback to a non-persistent, in-memory limiter (Warning: Not global across processes!)
+        memory_bucket = InMemoryBucket([REQUEST_RATE])
+        GLOBAL_LIMITER = Limiter(
+            memory_bucket,
+            raise_when_fail=False,
+            max_delay=Duration.HOUR,
+        )
+
+# Initialize with default directory
+_init_limiter()
 
 # -------------------------
 # 3. Async rate-limit decorator (Using precise try_acquire_async)

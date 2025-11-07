@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Persistent data directory
+config/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -247,3 +250,4 @@ backend/plugins/RanobeDB/data
 backend/plugins
 TODOs.md
 docker_commands.md
+docker-push.sh

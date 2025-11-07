@@ -85,12 +85,16 @@ async def get_image(source: str, filepath: str, request: Request):
     if not plugin or not isinstance(plugin, MetadataPlugin):
         raise HTTPException(status_code=404, detail="Metadata source not found")
     
-    plugin_dir = Path(__file__).parent.parent.parent / "plugins" / source
+    # Use the plugin's data directory instead of the plugin code directory
+    if not hasattr(plugin, 'data_dir'):
+        raise HTTPException(status_code=500, detail="Plugin data directory not configured")
+    
+    plugin_data_dir = plugin.data_dir
     
     # The filepath is URL-encoded, so we need to decode it for filesystem access
     decoded_filepath = unquote(filepath)
     
-    img_path = plugin_dir / decoded_filepath
+    img_path = plugin_data_dir / decoded_filepath
 
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -99,7 +103,7 @@ async def get_image(source: str, filepath: str, request: Request):
         raise HTTPException(status_code=400, detail="Not a file")
     
     try:
-        img_path.resolve().relative_to(plugin_dir.resolve())
+        img_path.resolve().relative_to(plugin_data_dir.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
 

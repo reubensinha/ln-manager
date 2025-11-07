@@ -8,7 +8,7 @@ services:
       - "9583:9583"
 
     volumes:
-      # Database and user-installed plugins (persists backend/config/)
+      # Database, user-installed plugins, and plugin data (all in backend/config/)
       - /DATA/AppData/ln-manager/config/backend/config/:/app/backend/config/
       # Frontend plugins
       - /DATA/AppData/ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/

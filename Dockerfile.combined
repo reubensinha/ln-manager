@@ -62,4 +62,6 @@ RUN chmod +x /app/docker/entrypoint.sh
 # Run from /app so backend package is importable
 WORKDIR /app
 ENV PYTHONPATH=/app
+# Set plugin data directory for persistent plugin data (within config/)
+ENV PLUGIN_DATA_DIR=/app/backend/config/plugin-data
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
