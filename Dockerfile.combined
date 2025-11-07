@@ -1,0 +1,48 @@
+# Dockerfile.combined
+# 1) Build frontend
+FROM node:18-alpine AS frontend-build
+WORKDIR /frontend
+
+COPY frontend/package*.json ./
+# Use --legacy-peer-deps and npm install so the build doesn't fail when package-lock
+# and package.json are slightly out of sync in this repo. This produces reproducible
+# installs but will respect package.json semver ranges.
+RUN npm install --legacy-peer-deps --silent && npm cache clean --force
+COPY frontend/ .
+ARG VERSION
+ARG BASE_PATH=""
+# Build; Vite writes to 'dist' by default
+RUN env PUBLIC_VERSION=${VERSION:-} PUBLIC_API_URL=${BASE_PATH:-} BASE_PATH=${BASE_PATH:-} npm run build
+
+# 2) App image
+FROM python:3.11-slim AS app
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+
+# Install system packages needed (curl for healthcheck, build-essential if needed)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy backend source
+COPY backend/ /app/backend
+
+# Copy frontend build into the backend static directory that main.py will serve
+# frontend-build produces 'dist' directory by default for Vite
+COPY --from=frontend-build /frontend/dist /app/backend/static
+
+# Healthcheck (adjust if needed)
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/api/health || exit 1
+
+EXPOSE 8000
+
+# Use uvicorn to run the FastAPI app. Run from /app so the `backend` package is importable
+# and we can refer to the app as backend.main:app
+WORKDIR /app
+ENV PYTHONPATH=/app
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
