@@ -30,4 +30,4 @@ else
 fi
 
 echo "[entrypoint] Starting uvicorn server"
-exec uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-9583}"
