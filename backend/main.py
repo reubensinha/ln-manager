@@ -4,12 +4,13 @@ import time
 import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 import yaml
 
@@ -33,6 +34,9 @@ from backend.core.scheduler import (
 
 
 from .api.v1 import core, metadata, system
+
+STATIC_DIR = Path(__file__).parent / "static"
+
 
 scheduler = AsyncIOScheduler()
 scheduler.add_job(
@@ -234,3 +238,29 @@ async def restart_backend(background_tasks: BackgroundTasks):
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
+
+
+@app.get("/", include_in_schema=False)
+async def root_index():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404)
+
+# Catch-all to serve static files or SPA index
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    # Avoid interfering with API or websocket paths (these are registered above)
+    # If a file exists in STATIC_DIR, serve it
+    candidate = STATIC_DIR / full_path
+    if candidate.exists() and candidate.is_file():
+        return FileResponse(candidate)
+
+    # Otherwise, return index.html so client-side routing can handle the path
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+
+    # nothing found
+    raise HTTPException(status_code=404)
+
