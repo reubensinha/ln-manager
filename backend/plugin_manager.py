@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Type
 
-PLUGIN_DIR = Path("./plugins")
+PLUGIN_DIR = Path(__file__).parent / "plugins"
 
 
 class PluginManager:
