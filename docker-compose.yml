@@ -9,9 +9,9 @@ services:
 
     volumes:
       # Database and user-installed plugins (persists backend/config/)
-      - /home/reuben/projects/test/ln-manager/config/backend/:/app/backend/config/
+      - /DATA/AppData/ln-manager/config/backend/config/:/app/backend/config/
       # Frontend plugins (if you plan to support them)
-      - /home/reuben/projects/test/ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/
+      - /DATA/AppData/ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/
       # Static files - NOTE: This might interfere with the entrypoint building frontend!
       # Consider removing this mount or making it one-way
     healthcheck:
