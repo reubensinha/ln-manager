@@ -41,6 +41,13 @@ async def update_all_series_metadata():
             # TODO: Log success/failure
             if not success:
                 print(f"Failed to update series {series.id} ({series.title})")
+        
+        await notification_manager.broadcast(
+            NotificationMessage(
+                type=NotificationType.INFO,
+                message="Series metadata update completed.",
+            )
+        )
 
 
 # TODO: Better message text
