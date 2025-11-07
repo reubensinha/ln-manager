@@ -10,10 +10,8 @@ services:
     volumes:
       # Database and user-installed plugins (persists backend/config/)
       - /DATA/AppData/ln-manager/config/backend/config/:/app/backend/config/
-      # Frontend plugins (if you plan to support them)
+      # Frontend plugins
       - /DATA/AppData/ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/
-      # Static files - NOTE: This might interfere with the entrypoint building frontend!
-      # Consider removing this mount or making it one-way
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-9583}/api/health || exit 1"]
       interval: 30m
