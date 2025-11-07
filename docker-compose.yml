@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   ln-manager:
     image: ghcr.io/reubensinha/ln-manager:latest
@@ -10,10 +8,12 @@ services:
       - "9583:9583"
 
     volumes:
-      - ./ln-manager/config/backend/plugins/:/app/backend/plugins/
-      - ./ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/
-      - ./ln-manager/config/static:/app/backend/static
-      - ./ln-manager/config/backend/:/app/config/
+      # Database and user-installed plugins (persists backend/config/)
+      - /home/reuben/projects/test/ln-manager/config/backend/:/app/backend/config/
+      # Frontend plugins (if you plan to support them)
+      - /home/reuben/projects/test/ln-manager/config/frontend/plugins/:/app/frontend/src/plugins/
+      # Static files - NOTE: This might interfere with the entrypoint building frontend!
+      # Consider removing this mount or making it one-way
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-9583}/api/health || exit 1"]
       interval: 30m

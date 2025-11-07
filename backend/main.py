@@ -24,7 +24,7 @@ from backend.core.database.models import (
     GenericPlugin,
 )
 from backend.core.notifications import notification_manager
-from backend.plugin_manager import PluginManager, PLUGIN_DIR, plugin_manager
+from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
@@ -53,46 +53,51 @@ async def lifespan(app: FastAPI):
     init_db()
 
     with Session(engine) as session:
-        for folder in PLUGIN_DIR.iterdir():
-            if not folder.is_dir():
+        # Scan all plugin directories for manifests
+        for plugin_dir in PLUGIN_DIRS:
+            if not plugin_dir.exists():
                 continue
-            manifest_file = folder / "manifest.yaml"
-            if not manifest_file.exists():
-                continue
+                
+            for folder in plugin_dir.iterdir():
+                if not folder.is_dir():
+                    continue
+                manifest_file = folder / "manifest.yaml"
+                if not manifest_file.exists():
+                    continue
 
-            manifest = yaml.safe_load(manifest_file.open())
-            name = manifest.get("name")
-            version = manifest.get("version")
-            description = manifest.get("description", "")
-            author = manifest.get("author", "")
-            ptype = manifest.get("type")
+                manifest = yaml.safe_load(manifest_file.open())
+                name = manifest.get("name")
+                version = manifest.get("version")
+                description = manifest.get("description", "")
+                author = manifest.get("author", "")
+                ptype = manifest.get("type")
 
-            if ptype == "metadata":
-                plugin_cls = MetadataPluginTable
-            elif ptype == "indexer":
-                plugin_cls = IndexerPlugin
-            elif ptype == "downloader":
-                plugin_cls = DownloadClientPlugin
-            else:
-                plugin_cls = GenericPlugin
+                if ptype == "metadata":
+                    plugin_cls = MetadataPluginTable
+                elif ptype == "indexer":
+                    plugin_cls = IndexerPlugin
+                elif ptype == "downloader":
+                    plugin_cls = DownloadClientPlugin
+                else:
+                    plugin_cls = GenericPlugin
 
-            db_plugin = session.exec(
-                select(plugin_cls).where(plugin_cls.name == name)
-            ).first()
+                db_plugin = session.exec(
+                    select(plugin_cls).where(plugin_cls.name == name)
+                ).first()
 
-            if not db_plugin:
-                db_plugin = plugin_cls(
-                    name=name,
-                    version=version,
-                    description=description,
-                    author=author,
-                    enabled=True,
-                )
-                session.add(db_plugin)
-            else:
-                db_plugin.version = version
-                db_plugin.description = description
-                db_plugin.author = author
+                if not db_plugin:
+                    db_plugin = plugin_cls(
+                        name=name,
+                        version=version,
+                        description=description,
+                        author=author,
+                        enabled=True,
+                    )
+                    session.add(db_plugin)
+                else:
+                    db_plugin.version = version
+                    db_plugin.description = description
+                    db_plugin.author = author
 
         session.commit()
 
@@ -125,8 +130,15 @@ async def lifespan(app: FastAPI):
         )
 
         for plugin in enabled_plugins:
-            manifest_file = PLUGIN_DIR / plugin.name / "manifest.yaml"
-            if manifest_file.exists():
+            # Try to find the plugin in any of the plugin directories
+            manifest_file = None
+            for plugin_dir in PLUGIN_DIRS:
+                candidate = plugin_dir / plugin.name / "manifest.yaml"
+                if candidate.exists():
+                    manifest_file = candidate
+                    break
+            
+            if manifest_file and manifest_file.exists():
                 manifest = yaml.safe_load(manifest_file.open())
                 plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
                 # try:
