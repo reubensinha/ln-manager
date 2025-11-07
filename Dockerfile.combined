@@ -20,6 +20,9 @@ FROM python:3.11-slim AS app
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
+# Default port for the application; can be overridden at runtime with -e PORT=
+ENV PORT=9583
+
 # Install system packages needed (curl for healthcheck, build-essential if needed)
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl gnupg build-essential \
@@ -48,9 +51,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # Healthcheck (adjust if needed)
 HEALTHCHECK --interval=30m --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/api/health || exit 1
+  CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
-EXPOSE 8000
+EXPOSE ${PORT}
 
 # Copy entrypoint that will build frontend at container start and then launch uvicorn
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh
