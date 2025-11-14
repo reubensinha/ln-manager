@@ -99,6 +99,27 @@ async def toggle_download_status(
     session.commit()
     return {"status": "success"}
 
+@router.patch("/set-book-downloaded/{book_id}", response_model=dict[str, str])
+async def set_download_status(
+    *, session: Session = Depends(get_session), book_id: UUID, downloaded: bool
+):
+    book = session.get(Book, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    book.downloaded = downloaded
+    session.add(book)
+
+    series = session.get(Series, book.series_id)
+    if not series:
+        # This case should ideally not happen if data integrity is maintained
+        raise HTTPException(status_code=404, detail="Series not found for the book")
+
+    _update_download_status(session, series)
+
+    session.commit()
+    return {"status": "success"}
+
 
 @router.patch("/toggle-book-monitored/{book_id}", response_model=dict[str, str])
 async def toggle_monitor_status(

@@ -147,6 +147,19 @@ export async function toggleBookDownloaded(
   }
 }
 
+export async function setBookDownloaded(
+  bookId: string,
+  downloaded: boolean
+): Promise<{ status: string } | null> {
+  try {
+    const response = await api.patch(`/set-book-downloaded/${bookId}`, null, { params: { downloaded } });
+    return response.data;
+  } catch (error) {
+    console.error("Error setting book downloaded status:", error);
+    return null;
+  }
+}
+
 export async function toggleBookMonitored(
   bookId: string
 ): Promise<{ status: string } | null> {
