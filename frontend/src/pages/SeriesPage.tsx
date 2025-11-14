@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
-import { Text, SimpleGrid, Tabs, Group, Button } from "@mantine/core";
+import { Text, SimpleGrid, Tabs, Group, Button, Checkbox } from "@mantine/core";
 import { TbRefresh } from "react-icons/tb";
 
-import { getSeriesById, getSeriesGroupById, addSeries } from "../api/api";
+import {
+  getSeriesById,
+  getSeriesGroupById,
+  addSeries,
+  setBookDownloaded,
+} from "../api/api";
+import type { Series, SeriesGroupsResponse } from "../api/ApiResponse";
 import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
 import { type CardItem } from "../types/CardItems";
-import type { Series, SeriesGroupsResponse } from "../api/ApiResponse";
 
 function SeriesPage() {
   const { groupID } = useParams<{ groupID: string }>();
@@ -16,9 +21,12 @@ function SeriesPage() {
   );
   const [series, setSeries] = useState<Series | null>(null);
   const [books, setBooks] = useState<CardItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [chapters, setChapters] = useState<CardItem[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>("books");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedBooks, setSelectedBooks] = useState<Set<string>>(new Set());
+  const selectMode = selectedBooks.size > 0;
 
   useEffect(() => {
     if (groupID) {
@@ -120,6 +128,74 @@ function SeriesPage() {
     }
   };
 
+  const handleBookSelect = (bookId: string) => {
+    setSelectedBooks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookId)) {
+        newSet.delete(bookId);
+      } else {
+        newSet.add(bookId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedBooks.size === books.length) {
+      setSelectedBooks(new Set());
+    } else {
+      setSelectedBooks(new Set(books.map((book) => book.id)));
+    }
+  };
+
+  const setDownloaded = async (bookId: string, downloaded: boolean) => {
+    setIsLoading(true);
+    try {
+      await setBookDownloaded(bookId, downloaded);
+
+      if (series) {
+        const updatedSeries = await getSeriesById(series.id);
+        if (updatedSeries) {
+          const booksWithLinks =
+            updatedSeries.books?.map((item) => ({
+              id: item.id,
+              title: item.title,
+              img_url: item.img_url,
+              link: `/book/${item.id}`,
+              in_library: true,
+              nsfw_img: item.nsfw_img,
+              downloaded: item.downloaded,
+              monitored: item.monitored,
+            })) ?? [];
+
+          setSeries(updatedSeries);
+          setBooks(booksWithLinks);
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling download:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkAction = (action: string) => {
+    // Placeholder for bulk action logic
+    switch (action) {
+      case "add_to_library":
+        // Implement adding selected books to library
+        alert(`Adding ${Array.from(selectedBooks).join(", ")} books to library`);
+        selectedBooks.forEach((bookId) => setDownloaded(bookId, true));
+        break;
+      case "remove_from_library":
+        // Implement removing selected books from library
+        selectedBooks.forEach((bookId) => setDownloaded(bookId, false));
+        break;
+      default:
+        break;
+    }
+  };
+
   if (!seriesGroup) {
     return <Text>Loading series...</Text>;
   }
@@ -137,7 +213,11 @@ function SeriesPage() {
         <Group justify="space-between">
           <Tabs.List mb={"md"}>
             {seriesGroup.series?.map((seriesItem) => (
-              <Tabs.Tab key={seriesItem.id} value={seriesItem.id} disabled={isRefreshing}>
+              <Tabs.Tab
+                key={seriesItem.id}
+                value={seriesItem.id}
+                disabled={isRefreshing}
+              >
                 {seriesItem.plugin.name}
               </Tabs.Tab>
             ))}
@@ -179,13 +259,64 @@ function SeriesPage() {
             </Tabs.List>
 
             <Tabs.Panel value="books">
+              {isLoading && <Text>Updating...</Text>}
+              {selectMode && (
+                <Group justify="space-between" mb="md">
+                  <Group>
+                    <Button
+                      variant={"filled"}
+                      onClick={() => {
+                        setSelectedBooks(new Set());
+                      }}
+                    >
+                      {"Cancel Selection"}
+                    </Button>
+
+                    <>
+                      <Checkbox
+                        label="Select All"
+                        checked={
+                          selectedBooks.size === books.length &&
+                          books.length > 0
+                        }
+                        indeterminate={
+                          selectedBooks.size > 0 &&
+                          selectedBooks.size < books.length
+                        }
+                        onChange={handleSelectAll}
+                      />
+                      <Text size="sm" c="dimmed">
+                        {selectedBooks.size} selected
+                      </Text>
+                    </>
+                  </Group>
+
+                  <Group>
+                    <Button onClick={() => handleBulkAction("add_to_library")}>
+                      Add to Library
+                    </Button>
+                    <Button
+                      onClick={() => handleBulkAction("remove_from_library")}
+                    >
+                      Remove from Library
+                    </Button>
+                  </Group>
+                </Group>
+              )}
+
               <SimpleGrid
                 type="container"
                 cols={{ base: 2, "500px": 5, "1000px": 10 }}
-                // spacing={{ base: 10, '300px': 'xl' }}
               >
                 {books.map((bookItem) => (
-                  <ItemCard key={bookItem.id} item={bookItem} />
+                  <ItemCard
+                    key={bookItem.id}
+                    item={bookItem}
+                    selectMode={selectMode}
+                    selectable={true}
+                    selected={selectedBooks.has(bookItem.id)}
+                    onSelect={() => handleBookSelect(bookItem.id)}
+                  />
                 ))}
               </SimpleGrid>
             </Tabs.Panel>
