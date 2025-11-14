@@ -149,7 +149,6 @@ function SeriesPage() {
   };
 
   const setDownloaded = async (bookId: string, downloaded: boolean) => {
-    setIsLoading(true);
     try {
       await setBookDownloaded(bookId, downloaded);
 
@@ -173,23 +172,33 @@ function SeriesPage() {
         }
       }
     } catch (error) {
-      console.error("Error toggling download:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error setting download:", error);
     }
   };
 
-  const handleBulkAction = (action: string) => {
-    // Placeholder for bulk action logic
+  const handleBulkAction = async (action: string) => {
     switch (action) {
       case "add_to_library":
-        // Implement adding selected books to library
-        alert(`Adding ${Array.from(selectedBooks).join(", ")} books to library`);
-        selectedBooks.forEach((bookId) => setDownloaded(bookId, true));
+        setIsLoading(true);
+        try {
+          await Promise.all(
+            Array.from(selectedBooks).map((bookId) => setDownloaded(bookId, true))
+          );
+        } finally {
+          setIsLoading(false);
+          setSelectedBooks(new Set());
+        }
         break;
       case "remove_from_library":
-        // Implement removing selected books from library
-        selectedBooks.forEach((bookId) => setDownloaded(bookId, false));
+        setIsLoading(true);
+        try {
+          await Promise.all(
+            Array.from(selectedBooks).map((bookId) => setDownloaded(bookId, false))
+          );
+        } finally {
+          setIsLoading(false);
+          setSelectedBooks(new Set());
+        }
         break;
       default:
         break;
