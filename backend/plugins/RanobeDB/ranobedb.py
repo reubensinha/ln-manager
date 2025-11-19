@@ -49,8 +49,9 @@ class RanobeDBPlugin(MetadataPlugin):
         """
         Determine the appropriate title based on language preference.
         """
-        if lang == "ja":
-            # For Japanese books: romaji > romaji_orig > title > title_orig > "Unknown Title"
+        print(f"Determining title for lang: {lang}")
+        if lang != "en":
+            # For Non-English books: romaji > romaji_orig > title > title_orig > "Unknown Title"
             title = (
                 response.get("romaji")
                 or response.get("romaji_orig")
@@ -59,7 +60,7 @@ class RanobeDBPlugin(MetadataPlugin):
                 or "Unknown Title"
             )
         else:
-            # For non-Japanese books: title > romaji > romaji_orig > title_orig > "Unknown Title"
+            # For English books: title > romaji > romaji_orig > title_orig > "Unknown Title"
             title = (
                 response.get("title")
                 or response.get("romaji")
@@ -67,6 +68,8 @@ class RanobeDBPlugin(MetadataPlugin):
                 or response.get("title_orig")
                 or "Unknown Title"
             )
+            
+        print(f"Determined title: {title}")
 
         return title
 
@@ -441,7 +444,7 @@ class RanobeDBPlugin(MetadataPlugin):
             book_base = BookBase(
                 external_id=str(book_detail.get("id")),
                 title=self._determine_title(
-                    series_details.get("lang") or "", book_detail
+                    book_detail.get("lang") or series_details.get("lang") or "", book_detail
                 ),
                 romaji=book_detail.get("romaji") or book_detail.get("romaji_orig"),
                 title_orig=book_detail.get("title_orig"),
