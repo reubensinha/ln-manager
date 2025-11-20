@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.api.v1.utils import _update_download_status
 from backend.plugin_manager import plugin_manager
-from backend.core.database.models import *
+from backend.core.database.models import Plugin, Series, SeriesGroup, Book, Chapter, Release, NotificationMessage, NotificationType
 import uuid
 
 from backend.core.database.database import get_session
@@ -39,7 +39,7 @@ async def fetch_series(
     try:
         # ----- Lookup Plugin in Database (do this once) -----
         db_plugin = session.exec(
-            select(MetadataPluginTable).where(MetadataPluginTable.name == source)
+            select(Plugin).where(Plugin.name == source)
         ).first()
         if not db_plugin:
             raise HTTPException(

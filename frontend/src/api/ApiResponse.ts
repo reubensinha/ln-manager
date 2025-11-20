@@ -140,7 +140,9 @@ export type PluginResponse = {
   name: string;
   type: string;
   version: string;
+  author: string;
   description?: string;
+  enabled: boolean;
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
 };

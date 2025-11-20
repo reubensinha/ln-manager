@@ -1,7 +1,6 @@
 # from __future__ import annotations
 from datetime import date, datetime
 from enum import Enum
-from re import U
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
 
@@ -63,6 +62,12 @@ class LanguageCode(str, Enum):
     UR = "ur"
     VI = "vi"
 
+
+class PluginType(str, Enum):
+    METADATA = "metadata"
+    INDEXER = "indexer"
+    DOWNLOAD_CLIENT = "download_client"
+    GENERIC = "generic"
 
 class DownloadStatus(str, Enum):
     CONTINUING = "continuing"  ## All english books are downloaded and series is ongoing
@@ -159,58 +164,32 @@ class PluginBase(SQLModel):
     """
 
     name: str
+    type: PluginType
     version: str
+    author: str
     description: str | None = None
-    author: str | None = None
     enabled: bool = Field(default=True)
+    # routes: list[str] | None = None
+    # navbarLinks: list[str] | None = None
 
 
-class GenericPlugin(PluginBase, table=True):
+class Plugin(PluginBase, table=True):
     """
     A concrete plugin model for plugins that don't fit into other, more specific categories.
     """
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
+    series: list["Series"] | None = Relationship(back_populates="plugin")
 
-class MetadataPluginTable(PluginBase, table=True):
+
+class PluginPublic(PluginBase):
     """
-    Plugin that provides metadata for searching and fetching series details.
-
-    Relationships:
-        series (list["Series"]): All specific series entries sourced by this plugin.
-    """
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-
-    series: list["Series"] = Relationship(back_populates="plugin")
-
-
-# class MetadataPluginPublic(PluginBase):
-#     """
-#     Public API representation of the MetadataPlugin.
-#     """
-
-#     id: uuid.UUID
-#     series: list["SeriesPublic"] = []
-
-
-class IndexerPlugin(PluginBase, table=True):
-    """
-    Plugin that provides access to indexers for searching and locating downloadable files.
+    Public API representation of the MetadataPlugin.
     """
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-
-
-class DownloadClientPlugin(PluginBase, table=True):
-    """
-    Plugin that provides access to download clients (e.g., torrent clients, web downloaders)
-    for initiating and managing content downloads.
-    """
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-
+    id: uuid.UUID
+    # series: list["SeriesPublic"] | None = None
 
 ################################################################################
 # Search Response Models
@@ -404,7 +383,7 @@ class SeriesBase(SQLModel):
         title (str): The title as provided by the external source.
         author (str | None): The author as provided by the external source.
         description (str | None): The description as provided by the external source.
-        source_id (uuid.UUID | None): Foreign key to the MetadataPluginTable that provided this series.
+        source_id (uuid.UUID | None): Foreign key to the Plugin that provided this series.
         group_id (uuid.UUID | None): Foreign key to the SeriesGroup that this Series belongs to.
     """
 
@@ -438,7 +417,7 @@ class SeriesBase(SQLModel):
     download_status: DownloadStatus = DownloadStatus.NONE
 
     source_id: uuid.UUID | None = Field(
-        foreign_key="metadataplugintable.id", ondelete="SET NULL"
+        foreign_key="plugin.id", ondelete="SET NULL"
     )  # TODO: Decide what to do on delete
     group_id: uuid.UUID | None = Field(
         foreign_key="seriesgroup.id", ondelete="SET NULL"
@@ -450,7 +429,7 @@ class Series(SeriesBase, table=True):
     A single series from a single metadata source.
 
     Relationships:
-        plugin (MetadataPluginTable): The plugin that sourced this series.
+        plugin (Plugin): The plugin that sourced this series.
         group (SeriesGroup): The canonical group this series belongs to.
         books (list["Book"]): All books belonging to this specific series.
         chapters (list["Chapter"]): All chapters belonging to this specific series.
@@ -458,7 +437,7 @@ class Series(SeriesBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    plugin: MetadataPluginTable | None = Relationship(back_populates="series")
+    plugin: Plugin | None = Relationship(back_populates="series")
     group: SeriesGroup | None = Relationship(back_populates="series")
 
     books: list["Book"] = Relationship(back_populates="series", cascade_delete=True)
@@ -473,7 +452,7 @@ class SeriesPublic(SeriesBase):
     """
 
     id: uuid.UUID
-    plugin: MetadataPluginTable | None = None
+    plugin: Plugin | None = None
     group: SeriesGroupPublic | None = None
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
@@ -483,7 +462,7 @@ class SeriesPublicSimple(SeriesBase):
     """Series WITHOUT nested books/chapters (breaks recursion)"""
 
     id: uuid.UUID
-    plugin: MetadataPluginTable | None = None
+    plugin: Plugin | None = None
     group_id: uuid.UUID | None = None  # Just the ID, not the full object
 
 
@@ -491,7 +470,7 @@ class SeriesPublicWithBooks(SeriesBase):
     """Series WITH books but WITHOUT back-reference to group"""
 
     id: uuid.UUID
-    plugin: MetadataPluginTable | None = None
+    plugin: Plugin | None = None
     books: list["BookPublicSimple"] = []
     chapters: list["ChapterPublicSimple"] = []
 

@@ -16,10 +16,7 @@ from backend.core.database.models import (
     Series,
     SeriesGroup,
     LanguageCode,
-    MetadataPluginTable,
-    GenericPlugin,
-    IndexerPlugin,
-    DownloadClientPlugin,
+    Plugin
 )
 
 
@@ -305,26 +302,8 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
 
 async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str, str]:
     plugin = None
-    plugin_type = None
 
-    plugin = session.get(MetadataPluginTable, plugin_id)
-    if plugin:
-        plugin_type = "metadata"
-
-    if not plugin:
-        plugin = session.get(GenericPlugin, plugin_id)
-        if plugin:
-            plugin_type = "generic"
-
-    if not plugin:
-        plugin = session.get(IndexerPlugin, plugin_id)
-        if plugin:
-            plugin_type = "indexer"
-
-    if not plugin:
-        plugin = session.get(DownloadClientPlugin, plugin_id)
-        if plugin:
-            plugin_type = "download client"
+    plugin = session.get(Plugin, plugin_id)
 
     if not plugin:
         raise HTTPException(

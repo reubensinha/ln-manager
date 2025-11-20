@@ -172,6 +172,11 @@ async def toggle_series_monitor_status(
     session.commit()
     return {"status": "success"}
 
+@router.get("/plugins", response_model=list[PluginPublic])
+async def list_plugins(*, session: Session = Depends(get_session)):
+    plugins = session.exec(select(Plugin)).all()
+    return plugins
+
 @router.post("/install-plugin", response_model=dict[str, str])
 async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)):
     return await _install_plugin_util(file, session)

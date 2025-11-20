@@ -18,10 +18,7 @@ from backend.core.database.database import init_db, engine
 from backend.core.database.models import (
     NotificationMessage,
     PluginBase,
-    MetadataPluginTable,
-    IndexerPlugin,
-    DownloadClientPlugin,
-    GenericPlugin,
+    Plugin
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
@@ -72,25 +69,18 @@ async def lifespan(app: FastAPI):
                 author = manifest.get("author", "")
                 ptype = manifest.get("type")
 
-                if ptype == "metadata":
-                    plugin_cls = MetadataPluginTable
-                elif ptype == "indexer":
-                    plugin_cls = IndexerPlugin
-                elif ptype == "downloader":
-                    plugin_cls = DownloadClientPlugin
-                else:
-                    plugin_cls = GenericPlugin
 
                 db_plugin = session.exec(
-                    select(plugin_cls).where(plugin_cls.name == name)
+                    select(Plugin).where(Plugin.name == name)
                 ).first()
 
                 if not db_plugin:
-                    db_plugin = plugin_cls(
+                    db_plugin = Plugin(
                         name=name,
+                        type=ptype,
                         version=version,
-                        description=description,
                         author=author,
+                        description=description,
                         enabled=True,
                     )
                     session.add(db_plugin)
@@ -105,26 +95,9 @@ async def lifespan(app: FastAPI):
         enabled_plugins = (
             list(
                 session.exec(
-                    select(MetadataPluginTable).where(
-                        MetadataPluginTable.enabled == True
+                    select(Plugin).where(
+                        Plugin.enabled == True
                     )
-                ).all()
-            )
-            + list(
-                session.exec(
-                    select(IndexerPlugin).where(IndexerPlugin.enabled == True)
-                ).all()
-            )
-            + list(
-                session.exec(
-                    select(DownloadClientPlugin).where(
-                        DownloadClientPlugin.enabled == True
-                    )
-                ).all()
-            )
-            + list(
-                session.exec(
-                    select(GenericPlugin).where(GenericPlugin.enabled == True)
                 ).all()
             )
         )

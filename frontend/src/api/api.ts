@@ -198,21 +198,13 @@ export async function toggleSeriesMonitored(
 
 export async function getPlugins(): Promise<PluginResponse[]> {
   // Placeholder function to simulate fetching plugins from an API
-  return [
-    {
-      id: "RanobeDB",
-      name: "RanobeDB",
-      type: "metadata",
-      version: "1.0.0",
-      description: "Plugin to fetch metadata from RanobeDB",
-    },
-    {
-      id: "plugin1",
-      name: "Plugin 1",
-      type: "generic",
-      version: "0.1.0",
-    },
-  ];
+  try {
+    const response = await api.get(`/plugins`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugins:", error);
+    return [];
+  }
 }
 
 export async function uploadPlugin(
