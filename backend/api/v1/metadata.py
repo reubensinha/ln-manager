@@ -11,8 +11,6 @@ from backend.core.database.models import *
 from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 from backend.core.services import metadata_service
-
-from backend.api.v1.utils import _update_download_status
 from backend.plugin_manager import plugin_manager
 
 router = APIRouter()

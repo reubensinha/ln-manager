@@ -4,7 +4,7 @@ from fastapi import HTTPException, Depends
 from sqlmodel import Session, select
 
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
-from backend.api.v1.utils import _update_download_status
+from backend.core.services.library_service import _update_download_status
 from backend.plugin_manager import plugin_manager
 from backend.core.database.models import Plugin, Series, SeriesGroup, Book, Chapter, Release, NotificationMessage, NotificationType
 import uuid

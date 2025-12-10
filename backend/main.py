@@ -4,7 +4,8 @@ import time
 import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -22,6 +23,7 @@ from backend.core.database.models import (
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
+from backend.core.exceptions import ResourceNotFoundError, InvalidStateError, ValidationError
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
@@ -146,6 +148,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Exception handlers for custom domain exceptions
+@app.exception_handler(ResourceNotFoundError)
+async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(InvalidStateError)
+async def invalid_state_handler(request: Request, exc: InvalidStateError):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_error_handler(request: Request, exc: ValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)},
+    )
 
 
 @app.get("/api")
