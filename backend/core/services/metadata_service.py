@@ -6,12 +6,52 @@ from sqlmodel import Session, select
 # from backend.core.database.plugins import MetadataPlugin, IndexerPlugin
 from backend.core.services.library_service import _update_download_status
 from backend.plugin_manager import plugin_manager
-from backend.core.database.models import Plugin, Series, SeriesGroup, Book, Chapter, Release, NotificationMessage, NotificationType
+from backend.core.database.models import (
+    Plugin,
+    Series,
+    SeriesGroup,
+    Book,
+    Chapter,
+    Release,
+    NotificationMessage,
+    NotificationType,
+    SeriesDetailsResponse,
+    SeriesSearchResponse,
+)
 import uuid
 
 from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 from backend.core.notifications import notification_manager
+from backend.core.exceptions import ResourceNotFoundError, ValidationError
+
+
+async def get_series_details(
+    source: str, external_id: str
+) -> SeriesDetailsResponse:
+    """Get detailed information about a series from a metadata source."""
+    plugin = plugin_manager.get_plugin(source)
+    if not plugin or not isinstance(plugin, MetadataPlugin):
+        raise ResourceNotFoundError("Metadata source", source)
+
+    if not external_id:
+        raise ValidationError("external_id is required")
+
+    result = await plugin.get_series_by_id(external_id)
+    if not result:
+        raise ResourceNotFoundError(f"Series from {source}", external_id)
+    return result
+
+
+async def search_series(query: str, source: str) -> list[SeriesSearchResponse]:
+    """Search for series using a metadata source."""
+    plugin = plugin_manager.get_plugin(source)
+    if not plugin or not isinstance(plugin, MetadataPlugin):
+        raise ResourceNotFoundError("Metadata source", source)
+
+    results = await plugin.search_series(query)
+    # TODO: Filter out existing series from results
+    return results
 
 
 async def fetch_series(
@@ -26,14 +66,13 @@ async def fetch_series(
 
     plugin = plugin_manager.get_plugin(source)
     if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise HTTPException(status_code=404, detail="Metadata source not found")
+        raise ResourceNotFoundError("Metadata source", source)
 
     # ----- Fetch From Plugin-----
     data: SeriesFetchModel | None = await plugin.fetch_series(external_id)
     if not data or not data.series:
-        raise HTTPException(
-            status_code=404,
-            detail=f"{source} Could not find series with id {external_id}",
+        raise ResourceNotFoundError(
+            f"Series from {source}", external_id
         )
 
     try:
@@ -42,9 +81,8 @@ async def fetch_series(
             select(Plugin).where(Plugin.name == source)
         ).first()
         if not db_plugin:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Metadata source {source} not found in database",
+            raise ResourceNotFoundError(
+                f"Metadata source {source} in database"
             )
 
         # ----- Check if Series Already Exists -----
@@ -68,9 +106,8 @@ async def fetch_series(
             # User explicitly specified a group - just use it, don't modify it
             group = session.get(SeriesGroup, uuid.UUID(series_group))
             if not group:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Series group {series_group} not found",
+                raise ResourceNotFoundError(
+                    "Series group", series_group
                 )
         else:
             # No group specified - determine group based on existing series
@@ -284,9 +321,12 @@ async def fetch_series(
 
         success = True
 
+    except (ResourceNotFoundError, ValidationError) as e:
+        session.rollback()
+        raise
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error adding series: {e}")
+        raise Exception(f"Error adding series: {e}")
 
     for notif in notifications:
         await notification_manager.broadcast(notif)
