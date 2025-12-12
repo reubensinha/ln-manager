@@ -19,7 +19,8 @@ from backend.core.database.database import init_db, engine
 from backend.core.database.models import (
     NotificationMessage,
     PluginBase,
-    Plugin
+    Plugin,
+    PluginType
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
@@ -29,6 +30,7 @@ from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
     check_release_day,
     update_all_series_metadata,
+    run_automated_pipeline
 )
 
 
@@ -120,6 +122,25 @@ async def lifespan(app: FastAPI):
                 #     plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
                 # except Exception as e:
                 #     print(f"Failed to load plugin {plugin.name}: {e}")
+
+        # Check if both Indexer and Download Client plugins are enabled
+        has_indexer = any(p.type == PluginType.INDEXER for p in enabled_plugins)
+        has_download_client = any(p.type == PluginType.DOWNLOAD_CLIENT for p in enabled_plugins)
+        
+        if has_indexer and has_download_client:
+            scheduler.add_job(
+                run_automated_pipeline,
+                "interval",
+                minutes=15,
+            )
+            print("Automated pipeline job scheduled (Indexer and Download Client plugins found)")
+        else:
+            missing = []
+            if not has_indexer:
+                missing.append("Indexer")
+            if not has_download_client:
+                missing.append("Download Client")
+            print(f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}")
 
     scheduler.start()
     yield

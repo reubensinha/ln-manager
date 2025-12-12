@@ -28,28 +28,12 @@ class AddSeriesResponse(SQLModel):
 
 @router.get("/series_details/{source}", response_model=SeriesDetailsResponse)
 async def get_series_details(source: str, external_id: str):
-    plugin = plugin_manager.get_plugin(source)
-    if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise HTTPException(status_code=404, detail="Metadata source not found")
-
-    if not external_id:
-        raise HTTPException(
-            status_code=400, detail="external_id query parameter is required"
-        )
-
-    result = await plugin.get_series_by_id(external_id)
-    return result
+    return await metadata_service.get_series_details(source, external_id)
 
 
 @router.get("/search", response_model=list[SeriesSearchResponse])
 async def search_series(query: str, source: str):
-    plugin = plugin_manager.get_plugin(source)
-    if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise HTTPException(status_code=404, detail="Metadata source not found")
-
-    results = await plugin.search_series(query)
-    # TODO: Filter out existing series from results
-    return results
+    return await metadata_service.search_series(query, source)
 
 
 @router.post("/add/series", response_model=AddSeriesResponse)
