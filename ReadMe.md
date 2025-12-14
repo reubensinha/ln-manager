@@ -1,147 +1,149 @@
 # LN-Manager
 
-A modern web application for managing your light novel collection with automatic metadata fetching, release tracking, and a beautiful calendar interface.
+A self-hosted web application for managing your light novel collection with automatic metadata fetching and release tracking.
 
 ## Features
 
-- **Organize Your Collection**: Keep track of all your light novels with series groups and collections
-- **Release Calendar**: Never miss a release with month and week calendar views
-- **Metadata Handling**: Fetch series/book information, cover images, and release dates from various sources automatically using plugins.
+- **Library Management** - Track your light novel collection with series and book information
+- **Release Calendar** - View upcoming and past releases in calendar format
+- **Automatic Metadata** - Fetches cover images, release dates, and series info from RanobeDB
+- **Search** - Quick search for series to add to your library (`Ctrl+K` / `Cmd+K`)
+- **Notifications** - Track metadata updates and changes
 
 ## Screenshots
 
-*[Screenshots coming soon]*
+- _Coming soon_
 
-## Installation & Setup
+## Installation
 
-### Requirements
+### Docker (Recommended)
 
-- **Python 3.9 or higher**
-- **Node.js 18 or higher**
-- **pip** (Python package manager)
-- **npm** or **yarn** (Node package manager)
+Create a `docker-compose.yml` file:
 
-### Quick Start
+```yaml
+services:
+  ln-manager:
+    image: ghcr.io/reubensinha/ln-manager:latest
+    container_name: ln-manager
+    restart: unless-stopped
 
-1. **Clone the repository**
+    ports:
+      - "9583:9583"
+
+    volumes:
+      # Database, plugins, and plugin data
+      - ./config/backend:/app/backend/config/
+      # Frontend plugins
+      - ./config/frontend/plugins:/app/frontend/src/plugins/
+```
+
+Then run:
+
+```bash
+docker-compose up -d
+```
+
+Access the application at `http://localhost:9583`
+
+**Volume Mounts:**
+
+- `./config/backend` - Database (SQLite), installed plugins, and plugin data
+- `./config/frontend/plugins` - Custom frontend plugin components
+
+**Configuration:**
+
+- Change port by modifying `9583:9583` to `YOUR_PORT:9583`
+- All data persists in the mounted volumes
+
+### Manual Installation (Development)
+
+**Requirements**: Python 3.9+, Node.js 18+
+
+1. Clone the repository:
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/reubensinha/ln-manager.git
    cd ln-auto-v2
    ```
 
-2. **Install Backend Dependencies**
+2. Install and run backend:
 
    ```bash
    cd backend
    pip install -r requirements.txt
+   fastapi dev  # Runs on http://localhost:8000
    ```
 
-3. **Install Frontend Dependencies**
-
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-
-4. **Start the Backend Server**
-
-   Open a terminal and run:
-
-   ```bash
-   cd backend
-   fastapi run
-   ```
-
-   The backend will start at `http://localhost:8000`
-
-5. **Start the Frontend**
-
-   Open a **new terminal** and run:
+3. Install and run frontend (separate terminal):
 
    ```bash
    cd frontend
-   yarn build
+   npm install
+   yarn dev  # Runs on http://localhost:5173
    ```
 
-   The web interface will open at `http://localhost:5173`
+</details>
 
-6. **Start Using LN-Auto!**
+## Usage
 
-   - Open your browser to `http://localhost:5173`
-   - Click search bar to open the search palette
-   - Search for a light novel series and add it to your library
-   - View your collection, check the release calendar, and enjoy!
+1. Open `http://localhost:9583` in your browser
+2. Press `Ctrl+K` (or `Cmd+K` on Mac) to open search
+3. Search for a light novel series
+4. Click a result and add it to your library
+5. Navigate between Library, Calendar, and Settings pages
 
-## Usage Tips
+**Keyboard Shortcuts:**
 
-- **Quick Search**: Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) anywhere to open the search palette
-- **Add Series**: Search for a series, click on a result, then click "Add to Library"
-- **Calendar View**: Navigate to the Calendar page to see all upcoming releases
-- **Automatic Updates**: Series metadata automatically refreshes every hour
-- **Notifications**: Check the notifications page to see history of all updates
+- `Ctrl+K` / `Cmd+K` - Open search
 
-## Default Plugins
+## Architecture
 
-Metadata sources:
+### Backend (Python)
 
-- **RanobeDB** - Light novel database with English and Japanese titles, cover images, and release dates
+- **FastAPI** - REST API framework
+- **SQLModel** - Database ORM (SQLite)
+- **APScheduler** - Automatic metadata refresh
+- **Plugin System** - Dynamic plugin loading
 
-## TODOs
+### Frontend (TypeScript)
 
-- [ ] Dockerize application.
-- [ ] Add Alembic Migrations
-- [ ] Register Custom Plugin API routes.
-- [ ] Add proper dependancy management for plugins.
-- [ ] Add loading overlays to images/cards/tables everywhere.
-- [ ] Make series download status include percentages.
-- [ ] Add new schedular to check and notify if it is release day for any releases in the database.
-- [ ] Create filter options for library page and calendar page.
-- [ ] Add config options across application
-- [ ] Make Logo
+- **React 18** - UI framework
+- **Mantine** - Component library
+- **Vite** - Build tool
+- **Axios** - HTTP client
 
-### Known Issues
+### Current Plugins
 
-- [ ] Unclear if restart backend endpoint works in production.
-- [ ] Spotlight search does not repopulate the "existing series" until force refresh - ctrl-shift-r
+- **RanobeDB** (Metadata) - Fetches series info, covers, and release dates
+
+## Plugin Development
+
+See [backend/ReadMe.md](backend/ReadMe.md) for creating metadata providers, indexers, or download clients. The `backend/plugins/RanobeDB/` directory contains a complete example.
 
 ## Contributing
 
-Contributions are welcome! There are many ways to help:
+For development setup and contribution guidelines, see [backend/ReadMe.md](backend/ReadMe.md) and [frontend/ReadMe.md](frontend/ReadMe.md).
 
-- **Report Bugs**: Found an issue? Open a bug report with details about what went wrong
-- **Pull Request**: Pull requests are welcome!
-- **Improve Documentation**: Help make our docs clearer and more comprehensive
-- **Enhance UI/UX**: Improve the design, add features, or fix visual issues
-- **Write Tests**: Help improve code quality and reliability
+**Quick start for contributors:**
 
-### For Developers
+1. Fork and clone the repository
+2. Follow manual installation steps above
+3. Make changes and test
+4. Submit a pull request
 
-If you're interested in contributing code:
+## Known Issues
 
-1. **Fork the repository** and clone it locally
-2. **Read the documentation**:
-   - [Backend Developer Guide](backend/ReadMe.md) - API development and plugin creation
-   - [Frontend Developer Guide](frontend/ReadMe.md) - UI components and features
-3. **Pick an issue** or create a new one to discuss your changes
-4. **Make your changes** and test thoroughly
-5. **Submit a pull request** with a clear description
+- Restart backend endpoint may not work properly in production
+- Search doesn't update existing series list until hard refresh (`Ctrl+Shift+R`)
 
-### Plugin Development
-
-Creating plugins is one of the best ways to extend LN-Auto! Check out:
-
-- The [Backend README](backend/ReadMe.md) for detailed plugin development guide
-- The `backend/plugins/RanobeDB/` directory for a working example
+See [TODOs.md](TODOs.md) for full list of planned features and known issues.
 
 ## Acknowledgments
 
-- [RanobeDB](https://ranobedb.org/) for providing comprehensive light novel metadata
-- [Mantine](https://mantine.dev/) for the beautiful UI component library
-- [FastAPI](https://fastapi.tiangolo.com/) for the excellent Python web framework
+- [RanobeDB](https://ranobedb.org/) - Light novel metadata
+- [FastAPI](https://fastapi.tiangolo.com/) - Backend framework
+- [Mantine](https://mantine.dev/) - UI components
 
 ---
 
 **Status**: Active Development
-
-This project is under active development. Expect frequent updates and new features!
