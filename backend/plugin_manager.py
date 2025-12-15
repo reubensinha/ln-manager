@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Dict, Type
 
+from backend.core.plugins.base import BasePlugin
+
 # Bundled plugins (part of the image)
 BUNDLED_PLUGIN_DIR = Path(__file__).parent / "plugins"
 # User-installed plugins (in backend/config/plugins/)
@@ -20,7 +22,7 @@ class PluginManager:
     
     def __init__(self, plugin_dirs: list[Path] | None = None):
         self.plugin_dirs = plugin_dirs if plugin_dirs is not None else PLUGIN_DIRS
-        self.plugins: Dict[str, object] = {}  # name -> instance
+        self.plugins: Dict[str, BasePlugin] = {}  # name -> instance
         
         # Ensure user plugin directory exists
         USER_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,8 +70,35 @@ class PluginManager:
         
         instance = cls()
         self.plugins[manifest["name"]] = instance
+        
+        # Call start() to initialize the plugin
+        instance.start()
+        
         return instance
 
+    def unload_plugin(self, name: str) -> bool:
+        """Unload a plugin by name, calling its stop() method for cleanup.
+        
+        Returns:
+            bool: True if plugin was unloaded, False if not found
+        """
+        plugin = self.plugins.get(name)
+        if plugin:
+            # Call stop() to allow plugin to clean up before removal
+            plugin.stop()
+            del self.plugins[name]
+            return True
+        return False
+    
+    def shutdown_all_plugins(self) -> None:
+        """Call stop() on all loaded plugins for cleanup during application shutdown."""
+        for name, plugin in list(self.plugins.items()):
+            try:
+                plugin.stop()
+            except Exception as e:
+                # Log but don't stop shutdown process
+                print(f"Error stopping plugin '{name}': {e}")
+    
     def get_plugin(self, name: str):
         return self.plugins.get(name)
     

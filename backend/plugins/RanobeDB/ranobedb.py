@@ -25,7 +25,7 @@ class RanobeDBPlugin(MetadataPlugin):
     """RanobeDB metadata plugin implementation."""
 
     name = "RanobeDB"
-    version = "1.0.0"
+    version = "0.1.0"
     description = "Metadata plugin for RanobeDB"
     enabled = True
     _base_img_url = IMAGE_BASE_URL
