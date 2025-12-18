@@ -4,7 +4,14 @@ import time
 import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    BackgroundTasks,
+    Request,
+)
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -20,17 +27,24 @@ from backend.core.database.models import (
     NotificationMessage,
     PluginBase,
     Plugin,
-    PluginType
+    PluginType,
+    MetadataSource,
+    Indexer,
+    DownloadClient,
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
-from backend.core.exceptions import ResourceNotFoundError, InvalidStateError, ValidationError
+from backend.core.exceptions import (
+    ResourceNotFoundError,
+    InvalidStateError,
+    ValidationError,
+)
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
     check_release_day,
     update_all_series_metadata,
-    run_automated_pipeline
+    run_automated_pipeline,
 )
 
 
@@ -58,7 +72,7 @@ async def lifespan(app: FastAPI):
         for plugin_dir in PLUGIN_DIRS:
             if not plugin_dir.exists():
                 continue
-                
+
             for folder in plugin_dir.iterdir():
                 if not folder.is_dir():
                     continue
@@ -73,7 +87,6 @@ async def lifespan(app: FastAPI):
                 author = manifest.get("author", "")
                 ptype = manifest.get("type")
 
-
                 db_plugin = session.exec(
                     select(Plugin).where(Plugin.name == name)
                 ).first()
@@ -81,7 +94,6 @@ async def lifespan(app: FastAPI):
                 if not db_plugin:
                     db_plugin = Plugin(
                         name=name,
-                        type=ptype,
                         version=version,
                         author=author,
                         description=description,
@@ -96,14 +108,8 @@ async def lifespan(app: FastAPI):
         session.commit()
 
         # Ensure PluginBase table exists
-        enabled_plugins = (
-            list(
-                session.exec(
-                    select(Plugin).where(
-                        Plugin.enabled == True
-                    )
-                ).all()
-            )
+        enabled_plugins = list(
+            session.exec(select(Plugin).where(Plugin.enabled == True)).all()
         )
 
         for plugin in enabled_plugins:
@@ -114,7 +120,7 @@ async def lifespan(app: FastAPI):
                 if candidate.exists():
                     manifest_file = candidate
                     break
-            
+
             if manifest_file and manifest_file.exists():
                 manifest = yaml.safe_load(manifest_file.open())
                 plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
@@ -123,24 +129,36 @@ async def lifespan(app: FastAPI):
                 # except Exception as e:
                 #     print(f"Failed to load plugin {plugin.name}: {e}")
 
-        # Check if both Indexer and Download Client plugins are enabled
-        has_indexer = any(p.type == PluginType.INDEXER for p in enabled_plugins)
-        has_download_client = any(p.type == PluginType.DOWNLOAD_CLIENT for p in enabled_plugins)
-        
+        # Check if there are any enabled indexers and download clients configured
+        has_indexer = (
+            session.exec(select(Indexer).where(Indexer.enabled == True)).first()
+            is not None
+        )
+        has_download_client = (
+            session.exec(
+                select(DownloadClient).where(DownloadClient.enabled == True)
+            ).first()
+            is not None
+        )
+
         if has_indexer and has_download_client:
             scheduler.add_job(
                 run_automated_pipeline,
                 "interval",
                 minutes=15,
             )
-            print("Automated pipeline job scheduled (Indexer and Download Client plugins found)")
+            print(
+                "Automated pipeline job scheduled (Indexer and Download Client plugins found)"
+            )
         else:
             missing = []
             if not has_indexer:
                 missing.append("Indexer")
             if not has_download_client:
                 missing.append("Download Client")
-            print(f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}")
+            print(
+                f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}"
+            )
 
     scheduler.start()
     yield
@@ -280,6 +298,7 @@ async def root_index():
         return FileResponse(index_file)
     raise HTTPException(status_code=404)
 
+
 # Catch-all to serve static files or SPA index
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
@@ -296,4 +315,3 @@ async def spa_fallback(full_path: str):
 
     # nothing found
     raise HTTPException(status_code=404)
-
