@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 import os
 
-## TODO: typing module is deprecated.
+## TODO: Try Avoid using Any
 from typing import Any
 
 class BasePlugin(ABC):
@@ -61,6 +61,7 @@ class BasePlugin(ABC):
     
     # Optional methods for service-type plugins (metadata, indexer, download client)
     
+    # TODO: Consider raising NotImplementedError in these methods instead of returning [].
     def get_available_sources(self) -> list[dict[str, Any]]:
         """Return metadata sources this plugin can provide.
         
