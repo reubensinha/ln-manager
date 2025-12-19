@@ -48,7 +48,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata, system
+from .api.v1 import core, metadata, system, plugins
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -121,13 +121,130 @@ async def lifespan(app: FastAPI):
                     manifest_file = candidate
                     break
 
+            ## TODO: Add unavailable field to source/indexer/client, and set/unset based on whether it exists.
             if manifest_file and manifest_file.exists():
                 manifest = yaml.safe_load(manifest_file.open())
-                plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
-                # try:
-                #     plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
-                # except Exception as e:
-                #     print(f"Failed to load plugin {plugin.name}: {e}")
+                plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                
+                # Register plugin's metadata sources in database
+                try:
+                    available_sources = plugin_instance.get_available_sources()
+                    advertised_names = {s["name"] for s in available_sources}
+                    
+                    # Get all existing sources for this plugin
+                    existing_sources = session.exec(
+                        select(MetadataSource).where(MetadataSource.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable sources that are no longer advertised
+                    for existing in existing_sources:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled metadata source '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised sources (don't auto re-enable disabled ones)
+                    for source_info in available_sources:
+                        existing = session.exec(
+                            select(MetadataSource)
+                            .where(MetadataSource.name == source_info["name"])
+                            .where(MetadataSource.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            # Create new source
+                            metadata_source = MetadataSource(
+                                name=source_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=source_info.get("description"),
+                                config={},  # Default empty config
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(metadata_source)
+                            print(f"Registered new metadata source '{source_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support metadata sources
+                
+                # Register plugin's indexers in database
+                try:
+                    available_indexers = plugin_instance.get_available_indexers()
+                    advertised_names = {i["name"] for i in available_indexers}
+                    
+                    # Get all existing indexers for this plugin
+                    existing_indexers = session.exec(
+                        select(Indexer).where(Indexer.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable indexers that are no longer advertised
+                    for existing in existing_indexers:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled indexer '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised indexers (don't auto re-enable disabled ones)
+                    for indexer_info in available_indexers:
+                        existing = session.exec(
+                            select(Indexer)
+                            .where(Indexer.name == indexer_info["name"])
+                            .where(Indexer.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            indexer = Indexer(
+                                name=indexer_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=indexer_info.get("description"),
+                                config={},
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(indexer)
+                            print(f"Registered new indexer '{indexer_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support indexers
+                
+                # Register plugin's download clients in database
+                try:
+                    available_clients = plugin_instance.get_available_clients()
+                    advertised_names = {c["name"] for c in available_clients}
+                    
+                    # Get all existing clients for this plugin
+                    existing_clients = session.exec(
+                        select(DownloadClient).where(DownloadClient.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable clients that are no longer advertised
+                    for existing in existing_clients:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled download client '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised clients (don't auto re-enable disabled ones)
+                    for client_info in available_clients:
+                        existing = session.exec(
+                            select(DownloadClient)
+                            .where(DownloadClient.name == client_info["name"])
+                            .where(DownloadClient.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            download_client = DownloadClient(
+                                name=client_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=client_info.get("description"),
+                                config={},
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(download_client)
+                            print(f"Registered new download client '{client_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support download clients
+        
+        session.commit()
 
         # Check if there are any enabled indexers and download clients configured
         has_indexer = (
@@ -289,6 +406,7 @@ async def restart_backend(background_tasks: BackgroundTasks):
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
+app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
 
 
 @app.get("/", include_in_schema=False)

@@ -10,12 +10,12 @@ import SeriesInfo from "./SeriesInfo";
 
 function AddSeriesModal({
   item,
-  source,
+  sourceId,
   open,
   onClose,
 }: {
   item: SearchSeriesResponse;
-  source: string;
+  sourceId: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -24,11 +24,11 @@ function AddSeriesModal({
 
   useEffect(() => {
     if (item) {
-      getSeriesFromSource(source, item.external_id).then((data) => {
+      getSeriesFromSource(sourceId, item.external_id).then((data) => {
         setSeries(data);
       });
     }
-  }, [item, source]);
+  }, [item, sourceId]);
 
     const handleAddSeries = async () => {
     if (!series) {
@@ -36,7 +36,7 @@ function AddSeriesModal({
     }
     setIsLoading(true);
     try {
-      await addSeries(source, series.external_id);
+      await addSeries(sourceId, series.external_id);
       onClose();
     } catch (error) {
       console.error("Error adding series:", error);

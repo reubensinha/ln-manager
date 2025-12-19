@@ -1,7 +1,6 @@
 # from __future__ import annotations
 from datetime import date, datetime
 from enum import Enum
-from multiprocessing import AuthenticationError
 from sqlmodel import Field, SQLModel, Relationship
 import uuid
 
@@ -182,7 +181,6 @@ class Plugin(PluginBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    series: list["Series"] | None = Relationship(back_populates="plugin")
     metadata_sources: list["MetadataSource"] = Relationship(back_populates="plugin")
     indexers: list["Indexer"] = Relationship(back_populates="plugin")
     download_clients: list["DownloadClient"] = Relationship(back_populates="plugin")
@@ -203,7 +201,7 @@ class MetadataSourceBase(SQLModel):
     version: str
     author: str | None = None
     description: str | None = None
-    config: dict | None = None  # API keys, URLs, etc.
+    config: dict | None = Field(default=None, sa_column=Column(JSON))  # API keys, URLs, etc.
     enabled: bool = Field(default=True)
 
     plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
@@ -213,6 +211,7 @@ class MetadataSource(MetadataSourceBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
     plugin: Plugin | None = Relationship(back_populates="metadata_sources")
+    series: list["Series"] = Relationship(back_populates="metadata_source")
 
 
 class MetadataSourcePublic(MetadataSourceBase):
@@ -225,7 +224,7 @@ class IndexerBase(SQLModel):
     version: str
     author: str | None = None
     description: str | None = None
-    config: dict | None = None  # API keys, URLs, etc.
+    config: dict | None = Field(default=None, sa_column=Column(JSON))  # API keys, URLs, etc.
     enabled: bool = Field(default=True)
 
     plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
@@ -247,7 +246,7 @@ class DownloadClientBase(SQLModel):
     version: str
     author: str | None = None
     description: str | None = None
-    config: dict | None = None  # API keys, URLs, etc.
+    config: dict | None = Field(default=None, sa_column=Column(JSON))  # API keys, URLs, etc.
     enabled: bool = Field(default=True)
     plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
 
@@ -449,13 +448,13 @@ class SeriesGroupPublicWithSeries(SeriesGroupBase):
 
 class SeriesBase(SQLModel):
     """
-    Base class for a single series entry, sourced from one specific plugin.
+    Base class for a single series entry, sourced from one specific metadata source.
 
     Fields:
         title (str): The title as provided by the external source.
         author (str | None): The author as provided by the external source.
         description (str | None): The description as provided by the external source.
-        source_id (uuid.UUID | None): Foreign key to the Plugin that provided this series.
+        source_id (uuid.UUID | None): Foreign key to the MetadataSource that provided this series.
         group_id (uuid.UUID | None): Foreign key to the SeriesGroup that this Series belongs to.
     """
 
@@ -489,8 +488,8 @@ class SeriesBase(SQLModel):
     download_status: DownloadStatus = DownloadStatus.NONE
 
     source_id: uuid.UUID | None = Field(
-        foreign_key="plugin.id", ondelete="SET NULL"
-    )  # TODO: Decide what to do on delete
+        foreign_key="metadatasource.id", ondelete="SET NULL"
+    )  # Reference to MetadataSource, not Plugin
     group_id: uuid.UUID | None = Field(
         foreign_key="seriesgroup.id", ondelete="SET NULL"
     )
@@ -501,7 +500,7 @@ class Series(SeriesBase, table=True):
     A single series from a single metadata source.
 
     Relationships:
-        plugin (Plugin): The plugin that sourced this series.
+        metadata_source (MetadataSource): The metadata source that provided this series.
         group (SeriesGroup): The canonical group this series belongs to.
         books (list["Book"]): All books belonging to this specific series.
         chapters (list["Chapter"]): All chapters belonging to this specific series.
@@ -509,7 +508,7 @@ class Series(SeriesBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
-    plugin: Plugin | None = Relationship(back_populates="series")
+    metadata_source: MetadataSource | None = Relationship(back_populates="series")
     group: SeriesGroup | None = Relationship(back_populates="series")
 
     books: list["Book"] = Relationship(back_populates="series", cascade_delete=True)
@@ -524,7 +523,7 @@ class SeriesPublic(SeriesBase):
     """
 
     id: uuid.UUID
-    plugin: Plugin | None = None
+    metadata_source: MetadataSourcePublic | None = None
     group: SeriesGroupPublic | None = None
     books: list["BookPublic"] = []
     chapters: list["ChapterPublic"] = []
@@ -534,7 +533,7 @@ class SeriesPublicSimple(SeriesBase):
     """Series WITHOUT nested books/chapters (breaks recursion)"""
 
     id: uuid.UUID
-    plugin: Plugin | None = None
+    metadata_source: MetadataSourcePublic | None = None
     group_id: uuid.UUID | None = None  # Just the ID, not the full object
 
 
@@ -542,7 +541,7 @@ class SeriesPublicWithBooks(SeriesBase):
     """Series WITH books but WITHOUT back-reference to group"""
 
     id: uuid.UUID
-    plugin: Plugin | None = None
+    metadata_source: MetadataSourcePublic | None = None
     books: list["BookPublicSimple"] = []
     chapters: list["ChapterPublicSimple"] = []
 

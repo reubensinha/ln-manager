@@ -18,11 +18,17 @@ PLUGIN_DIRS = [BUNDLED_PLUGIN_DIR, USER_PLUGIN_DIR]
 
 
 class PluginManager:
-    """Manages the loading and unloading of plugins."""
+    """Manages the loading and lifecycle of plugins.
+    
+    Plugins are instantiated at startup and kept running. They can:
+    - Provide multiple configured sources/indexers/clients (factory pattern)
+    - Run continuously for generic functionality (event listeners, background tasks)
+    - Register their capabilities and configuration requirements
+    """
     
     def __init__(self, plugin_dirs: list[Path] | None = None):
         self.plugin_dirs = plugin_dirs if plugin_dirs is not None else PLUGIN_DIRS
-        self.plugins: Dict[str, BasePlugin] = {}  # name -> instance
+        self.plugins: Dict[str, BasePlugin] = {}  # name -> running instance
         
         # Ensure user plugin directory exists
         USER_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -41,6 +47,10 @@ class PluginManager:
         return None
     
     def load_plugin_from_manifest(self, folder_name: str, manifest: dict):
+        """Load and instantiate a plugin from its manifest.
+        
+        The plugin instance is kept running for the lifetime of the application.
+        """
         entry_point = manifest.get("entry_point")
         if not entry_point:
             raise ValueError("Manifest missing 'entry_point' field")
@@ -66,10 +76,12 @@ class PluginManager:
             module_path = f"{folder_name}.{module_name}"
         
         module = importlib.import_module(module_path)
-        cls: Type = getattr(module, class_name)
+        cls: Type[BasePlugin] = getattr(module, class_name)
         
+        # Instantiate the plugin
+        plugin_name = manifest["name"]
         instance = cls()
-        self.plugins[manifest["name"]] = instance
+        self.plugins[plugin_name] = instance
         
         # Call start() to initialize the plugin
         instance.start()
@@ -82,9 +94,8 @@ class PluginManager:
         Returns:
             bool: True if plugin was unloaded, False if not found
         """
-        plugin = self.plugins.get(name)
-        if plugin:
-            # Call stop() to allow plugin to clean up before removal
+        if name in self.plugins:
+            plugin = self.plugins[name]
             plugin.stop()
             del self.plugins[name]
             return True
@@ -92,6 +103,7 @@ class PluginManager:
     
     def shutdown_all_plugins(self) -> None:
         """Call stop() on all loaded plugins for cleanup during application shutdown."""
+        ## TODO: call unload_plugin() instead?
         for name, plugin in list(self.plugins.items()):
             try:
                 plugin.stop()
@@ -99,10 +111,23 @@ class PluginManager:
                 # Log but don't stop shutdown process
                 print(f"Error stopping plugin '{name}': {e}")
     
-    def get_plugin(self, name: str):
+    def get_plugin(self, name: str) -> BasePlugin | None:
+        """Get a running plugin instance by name.
+        
+        Args:
+            name: Plugin name
+            
+        Returns:
+            Plugin instance or None if not found
+        """
         return self.plugins.get(name)
     
-    def get_all_plugins(self):
+    def get_all_plugins(self) -> Dict[str, BasePlugin]:
+        """Get all loaded plugin instances.
+        
+        Returns:
+            Dictionary of plugin_name -> plugin_instance
+        """
         return self.plugins
 
 plugin_manager = PluginManager()

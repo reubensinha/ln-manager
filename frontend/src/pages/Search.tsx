@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Group, TextInput, Select, Button, SimpleGrid } from "@mantine/core";
 
-import type { SearchSeriesResponse, PluginResponse } from "../api/ApiResponse";
+import type { SearchSeriesResponse, MetadataSource } from "../api/ApiResponse";
 import type { CardItem } from "../types/CardItems";
-import { searchSeries, getPlugins } from "../api/api";
+import { searchSeries, getMetadataSources } from "../api/api";
 import AddSeriesModal from "../components/AddSeriesModal";
 import ItemCard from "../components/ItemCard/ItemCard";
 import { useDisclosure } from "@mantine/hooks";
@@ -15,27 +15,28 @@ function Search() {
   const [results, setResults] = useState<SearchSeriesResponse[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>(query || "");
   const [value, setValue] = useState<string | null>(source || null);
-  const [plugins, setPlugins] = useState<PluginResponse[]>([]);
+  const [metadataSources, setMetadataSources] = useState<MetadataSource[]>([]);
   const [opened, { open, close }] = useDisclosure(false);
   const [selectedItem, setSelectedItem] = useState<SearchSeriesResponse | null>(
     null
   );
 
   useEffect(() => {
-    // Perform search based on source and query
-    if (query && source) {
-      searchSeries(query, source).then((data) => setResults(data));
-    }
-  }, [source, query]);
-
-  useEffect(() => {
-    getPlugins().then((data) => {
-      const metadataPlugins = data.filter(
-        (plugin) => plugin.type === "metadata"
-      );
-      setPlugins(metadataPlugins);
+    getMetadataSources().then((data) => {
+      setMetadataSources(data.filter(s => s.enabled));
     });
   }, []);
+
+  useEffect(() => {
+    // Perform search based on source and query
+    if (query && source && metadataSources.length > 0) {
+      // Find source by name to get UUID
+      const sourceObj = metadataSources.find(s => s.name === source);
+      if (sourceObj) {
+        searchSeries(query, sourceObj.id).then((data) => setResults(data));
+      }
+    }
+  }, [source, query, metadataSources]);
 
   const handleCardClick = (item: SearchSeriesResponse) => {
     setSelectedItem(item);
@@ -46,6 +47,7 @@ function Search() {
     if (value) {
       const trimmedQuery = searchQuery.trim();
       if (trimmedQuery.length > 0) {
+        // Use source name in URL for readability
         navigate(`/search/${value}/${encodeURIComponent(trimmedQuery)}`);
       }
     }
@@ -59,12 +61,14 @@ function Search() {
           onChange={setValue}
           size="md"
           label="Metadata Source"
-          description={`Search for series on ${value}`}
+          description={value ? `Search for series on ${value}` : "Select a metadata source"}
           variant="default"
-          // error="Error: Unknown metadata source"
-          placeholder="Select placeholder"
+          placeholder="Select metadata source"
           autoSelectOnBlur
-          data={plugins.map((plugin) => plugin.name)}
+          data={metadataSources.map((source) => ({
+            value: source.name,
+            label: source.name
+          }))}
           defaultSearchValue={source}
           defaultValue={source}
           allowDeselect={false}
@@ -96,7 +100,7 @@ function Search() {
       {source && selectedItem && (
         <AddSeriesModal
           item={selectedItem}
-          source={source}
+          sourceId={metadataSources.find(s => s.name === source)?.id || source}
           open={opened}
           onClose={close}
         />
