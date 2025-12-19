@@ -8,9 +8,9 @@ class IndexerPlugin(BasePlugin):
     @abstractmethod
     async def search(self, query: str) -> list[dict]:
         """Search for content using the indexer."""
-        ...
+        raise NotImplementedError
         
     @abstractmethod
     async def get_feed(self) -> list[dict]:
         """Get the latest feed items from the indexer."""
-        ...
+        raise NotImplementedError

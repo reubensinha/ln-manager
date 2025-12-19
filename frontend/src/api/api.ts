@@ -8,6 +8,8 @@ import type {
   SeriesSourceResponse,
   Release,
   Notification,
+  MetadataSource,
+  PluginCapability,
 } from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
@@ -21,11 +23,11 @@ const api = axios.create({
 
 export async function searchSeries(
   query: string,
-  source: string
+  sourceId: string
 ): Promise<SearchSeriesResponse[]> {
   try {
     const response = await api.get(`/search`, {
-      params: { query, source },
+      params: { query, source_id: sourceId },
     });
     return response.data;
   } catch (error) {
@@ -35,13 +37,13 @@ export async function searchSeries(
 }
 
 export async function addSeries(
-  source: string,
+  sourceId: string,
   external_id: string,
   series_group: string | null = null
 ): Promise<{ success: boolean; message: string }> {
   try {
     const response = await api.post(`/add/series`, {
-      source,
+      source_id: sourceId,
       external_id,
       series_group,
     });
@@ -99,13 +101,13 @@ export async function getSeriesById(id: string): Promise<Series | null> {
 }
 
 export async function getSeriesFromSource(
-  source: string,
+  sourceId: string,
   external_id: string
 ): Promise<SeriesSourceResponse | null> {
   // Placeholder function to simulate fetching series data from an external source
   try {
-    const response = await api.get(`/series_details/${source}`, {
-      params: { external_id },
+    const response = await api.get(`/series_details`, {
+      params: { source_id: sourceId, external_id },
     });
     return response.data;
   } catch (error) {
@@ -259,5 +261,45 @@ export async function restartBackend(): Promise<{
   } catch (error) {
     console.error("Error restarting backend:", error);
     return { success: false, message: "Failed to restart backend." };
+  }
+}
+
+export async function getMetadataSources(): Promise<MetadataSource[]> {
+  try {
+    const response = await api.get(`/sources`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching metadata sources:", error);
+    return [];
+  }
+}
+
+export async function getPluginSources(pluginName: string): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/sources`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin sources:", error);
+    return [];
+  }
+}
+
+export async function getPluginIndexers(pluginName: string): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/indexers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin indexers:", error);
+    return [];
+  }
+}
+
+export async function getPluginClients(pluginName: string): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/clients`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin clients:", error);
+    return [];
   }
 }

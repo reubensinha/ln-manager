@@ -8,6 +8,7 @@ from backend.core.services.library_service import _update_download_status
 from backend.plugin_manager import plugin_manager
 from backend.core.database.models import (
     Plugin,
+    MetadataSource,
     Series,
     SeriesGroup,
     Book,
@@ -27,68 +28,139 @@ from backend.core.exceptions import ResourceNotFoundError, ValidationError
 
 
 async def get_series_details(
-    source: str, external_id: str
+    source_id: str, external_id: str, session: Session = Depends(get_session)
 ) -> SeriesDetailsResponse:
-    """Get detailed information about a series from a metadata source."""
-    plugin = plugin_manager.get_plugin(source)
-    if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise ResourceNotFoundError("Metadata source", source)
+    """Get detailed information about a series from a metadata source.
+    
+    Args:
+        source_id: UUID of the MetadataSource
+        external_id: External series ID
+        session: Database session
+    """
+    # Query the metadata source
+    metadata_source = session.get(MetadataSource, uuid.UUID(source_id))
+    if not metadata_source or not metadata_source.enabled:
+        raise ResourceNotFoundError("Metadata source", source_id)
+    
+    if not metadata_source.plugin:
+        raise ResourceNotFoundError("Plugin for metadata source", source_id)
 
     if not external_id:
         raise ValidationError("external_id is required")
 
-    result = await plugin.get_series_by_id(external_id)
-    if not result:
-        raise ResourceNotFoundError(f"Series from {source}", external_id)
-    return result
+    # Get the plugin instance and create a configured source
+    plugin = plugin_manager.get_plugin(metadata_source.plugin.name)
+    if not plugin:
+        raise ResourceNotFoundError("Plugin", metadata_source.plugin.name)
+    
+    source_instance = None
+    try:
+        # Use plugin's factory method to create configured source
+        source_instance = plugin.create_metadata_source(metadata_source.config or {})
+        if not isinstance(source_instance, MetadataPlugin):
+            raise ResourceNotFoundError("Metadata source", metadata_source.name)
+
+        result = await source_instance.get_series_by_id(external_id)
+        if not result:
+            raise ResourceNotFoundError(f"Series from {metadata_source.name}", external_id)
+        return result
+    finally:
+        # Clean up if source has cleanup method
+        if source_instance and hasattr(source_instance, 'stop'):
+            source_instance.stop()
 
 
-async def search_series(query: str, source: str) -> list[SeriesSearchResponse]:
-    """Search for series using a metadata source."""
-    plugin = plugin_manager.get_plugin(source)
-    if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise ResourceNotFoundError("Metadata source", source)
+async def search_series(query: str, source_id: str, session: Session = Depends(get_session)) -> list[SeriesSearchResponse]:
+    """Search for series using a metadata source.
+    
+    Args:
+        query: Search query
+        source_id: UUID of the MetadataSource
+        session: Database session
+    """
+    # Query the metadata source
+    metadata_source = session.get(MetadataSource, uuid.UUID(source_id))
+    if not metadata_source or not metadata_source.enabled:
+        raise ResourceNotFoundError("Metadata source", source_id)
+    
+    if not metadata_source.plugin:
+        raise ResourceNotFoundError("Plugin for metadata source", source_id)
 
-    results = await plugin.search_series(query)
-    # TODO: Filter out existing series from results
-    return results
+    # Get the plugin instance and create a configured source
+    plugin = plugin_manager.get_plugin(metadata_source.plugin.name)
+    if not plugin:
+        raise ResourceNotFoundError("Plugin", metadata_source.plugin.name)
+    
+    source_instance = None
+    try:
+        # Use plugin's factory method to create configured source
+        source_instance = plugin.create_metadata_source(metadata_source.config or {})
+        if not isinstance(source_instance, MetadataPlugin):
+            raise ResourceNotFoundError("Metadata source", metadata_source.name)
+
+        results = await source_instance.search_series(query)
+        # TODO: Filter out existing series from results
+        return results
+    finally:
+        # Clean up if source has cleanup method
+        if source_instance and hasattr(source_instance, 'stop'):
+            source_instance.stop()
 
 
 async def fetch_series(
-    source: str,
+    source_id: str,
     external_id: str,
     series_group: str | None = None,
     session: Session = Depends(get_session),
 ):
+    """Fetch and add a series to the library.
+    
+    Args:
+        source_id: UUID of the MetadataSource
+        external_id: External series ID
+        series_group: Optional series group ID
+        session: Database session
+    """
     success = False
 
     notifications = []
 
-    plugin = plugin_manager.get_plugin(source)
-    if not plugin or not isinstance(plugin, MetadataPlugin):
-        raise ResourceNotFoundError("Metadata source", source)
+    # Query the metadata source
+    metadata_source = session.get(MetadataSource, uuid.UUID(source_id))
+    if not metadata_source or not metadata_source.enabled:
+        raise ResourceNotFoundError("Metadata source", source_id)
+    
+    if not metadata_source.plugin:
+        raise ResourceNotFoundError("Plugin for metadata source", source_id)
 
-    # ----- Fetch From Plugin-----
-    data: SeriesFetchModel | None = await plugin.fetch_series(external_id)
-    if not data or not data.series:
-        raise ResourceNotFoundError(
-            f"Series from {source}", external_id
-        )
+    # Get the plugin instance and create a configured source
+    plugin = plugin_manager.get_plugin(metadata_source.plugin.name)
+    if not plugin:
+        raise ResourceNotFoundError("Plugin", metadata_source.plugin.name)
+    
+    source_instance = None
+    try:
+        # Use plugin's factory method to create configured source
+        source_instance = plugin.create_metadata_source(metadata_source.config or {})
+        if not isinstance(source_instance, MetadataPlugin):
+            raise ResourceNotFoundError("Metadata plugin", metadata_source.plugin.name)
+
+        # ----- Fetch From Plugin-----
+        data: SeriesFetchModel | None = await source_instance.fetch_series(external_id)
+        if not data or not data.series:
+            raise ResourceNotFoundError(
+                f"Series from {metadata_source.name}", external_id
+            )
+    finally:
+        # Clean up plugin instance
+        if source_instance and hasattr(source_instance, 'stop'):
+            source_instance.stop()
 
     try:
-        # ----- Lookup Plugin in Database (do this once) -----
-        db_plugin = session.exec(
-            select(Plugin).where(Plugin.name == source)
-        ).first()
-        if not db_plugin:
-            raise ResourceNotFoundError(
-                f"Metadata source {source} in database"
-            )
-
         # ----- Check if Series Already Exists -----
         existing_series = session.exec(
             select(Series).where(
-                Series.source_id == db_plugin.id,
+                Series.source_id == metadata_source.id,
                 Series.external_id == external_id,
             )
         ).first()
@@ -163,7 +235,7 @@ async def fetch_series(
         else:
             # Create new series
             series_obj = Series.model_validate(
-                data.series, update={"source_id": db_plugin.id, "group_id": group.id}
+                data.series, update={"source_id": metadata_source.id, "group_id": group.id}
             )
             session.add(series_obj)
             session.flush()

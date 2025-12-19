@@ -4,7 +4,14 @@ import time
 import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    BackgroundTasks,
+    Request,
+)
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -20,21 +27,28 @@ from backend.core.database.models import (
     NotificationMessage,
     PluginBase,
     Plugin,
-    PluginType
+    PluginType,
+    MetadataSource,
+    Indexer,
+    DownloadClient,
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
-from backend.core.exceptions import ResourceNotFoundError, InvalidStateError, ValidationError
+from backend.core.exceptions import (
+    ResourceNotFoundError,
+    InvalidStateError,
+    ValidationError,
+)
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
     check_release_day,
     update_all_series_metadata,
-    run_automated_pipeline
+    run_automated_pipeline,
 )
 
 
-from .api.v1 import core, metadata, system
+from .api.v1 import core, metadata, system, plugins
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -58,7 +72,7 @@ async def lifespan(app: FastAPI):
         for plugin_dir in PLUGIN_DIRS:
             if not plugin_dir.exists():
                 continue
-                
+
             for folder in plugin_dir.iterdir():
                 if not folder.is_dir():
                     continue
@@ -73,7 +87,6 @@ async def lifespan(app: FastAPI):
                 author = manifest.get("author", "")
                 ptype = manifest.get("type")
 
-
                 db_plugin = session.exec(
                     select(Plugin).where(Plugin.name == name)
                 ).first()
@@ -81,7 +94,6 @@ async def lifespan(app: FastAPI):
                 if not db_plugin:
                     db_plugin = Plugin(
                         name=name,
-                        type=ptype,
                         version=version,
                         author=author,
                         description=description,
@@ -96,14 +108,8 @@ async def lifespan(app: FastAPI):
         session.commit()
 
         # Ensure PluginBase table exists
-        enabled_plugins = (
-            list(
-                session.exec(
-                    select(Plugin).where(
-                        Plugin.enabled == True
-                    )
-                ).all()
-            )
+        enabled_plugins = list(
+            session.exec(select(Plugin).where(Plugin.enabled == True)).all()
         )
 
         for plugin in enabled_plugins:
@@ -114,33 +120,162 @@ async def lifespan(app: FastAPI):
                 if candidate.exists():
                     manifest_file = candidate
                     break
-            
+
+            ## TODO: Add unavailable field to source/indexer/client, and set/unset based on whether it exists.
             if manifest_file and manifest_file.exists():
                 manifest = yaml.safe_load(manifest_file.open())
-                plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
-                # try:
-                #     plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
-                # except Exception as e:
-                #     print(f"Failed to load plugin {plugin.name}: {e}")
-
-        # Check if both Indexer and Download Client plugins are enabled
-        has_indexer = any(p.type == PluginType.INDEXER for p in enabled_plugins)
-        has_download_client = any(p.type == PluginType.DOWNLOAD_CLIENT for p in enabled_plugins)
+                plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                
+                # Register plugin's metadata sources in database
+                try:
+                    available_sources = plugin_instance.get_available_sources()
+                    advertised_names = {s["name"] for s in available_sources}
+                    
+                    # Get all existing sources for this plugin
+                    existing_sources = session.exec(
+                        select(MetadataSource).where(MetadataSource.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable sources that are no longer advertised
+                    for existing in existing_sources:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled metadata source '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised sources (don't auto re-enable disabled ones)
+                    for source_info in available_sources:
+                        existing = session.exec(
+                            select(MetadataSource)
+                            .where(MetadataSource.name == source_info["name"])
+                            .where(MetadataSource.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            # Create new source
+                            metadata_source = MetadataSource(
+                                name=source_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=source_info.get("description"),
+                                config={},  # Default empty config
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(metadata_source)
+                            print(f"Registered new metadata source '{source_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support metadata sources
+                
+                # Register plugin's indexers in database
+                try:
+                    available_indexers = plugin_instance.get_available_indexers()
+                    advertised_names = {i["name"] for i in available_indexers}
+                    
+                    # Get all existing indexers for this plugin
+                    existing_indexers = session.exec(
+                        select(Indexer).where(Indexer.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable indexers that are no longer advertised
+                    for existing in existing_indexers:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled indexer '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised indexers (don't auto re-enable disabled ones)
+                    for indexer_info in available_indexers:
+                        existing = session.exec(
+                            select(Indexer)
+                            .where(Indexer.name == indexer_info["name"])
+                            .where(Indexer.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            indexer = Indexer(
+                                name=indexer_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=indexer_info.get("description"),
+                                config={},
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(indexer)
+                            print(f"Registered new indexer '{indexer_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support indexers
+                
+                # Register plugin's download clients in database
+                try:
+                    available_clients = plugin_instance.get_available_clients()
+                    advertised_names = {c["name"] for c in available_clients}
+                    
+                    # Get all existing clients for this plugin
+                    existing_clients = session.exec(
+                        select(DownloadClient).where(DownloadClient.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable clients that are no longer advertised
+                    for existing in existing_clients:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            print(f"Disabled download client '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised clients (don't auto re-enable disabled ones)
+                    for client_info in available_clients:
+                        existing = session.exec(
+                            select(DownloadClient)
+                            .where(DownloadClient.name == client_info["name"])
+                            .where(DownloadClient.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            download_client = DownloadClient(
+                                name=client_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=client_info.get("description"),
+                                config={},
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(download_client)
+                            print(f"Registered new download client '{client_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support download clients
         
+        session.commit()
+
+        # Check if there are any enabled indexers and download clients configured
+        has_indexer = (
+            session.exec(select(Indexer).where(Indexer.enabled == True)).first()
+            is not None
+        )
+        has_download_client = (
+            session.exec(
+                select(DownloadClient).where(DownloadClient.enabled == True)
+            ).first()
+            is not None
+        )
+
         if has_indexer and has_download_client:
             scheduler.add_job(
                 run_automated_pipeline,
                 "interval",
                 minutes=15,
             )
-            print("Automated pipeline job scheduled (Indexer and Download Client plugins found)")
+            print(
+                "Automated pipeline job scheduled (Indexer and Download Client plugins found)"
+            )
         else:
             missing = []
             if not has_indexer:
                 missing.append("Indexer")
             if not has_download_client:
                 missing.append("Download Client")
-            print(f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}")
+            print(
+                f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}"
+            )
 
     scheduler.start()
     yield
@@ -271,6 +406,7 @@ async def restart_backend(background_tasks: BackgroundTasks):
 app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
+app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
 
 
 @app.get("/", include_in_schema=False)
@@ -279,6 +415,7 @@ async def root_index():
     if index_file.exists():
         return FileResponse(index_file)
     raise HTTPException(status_code=404)
+
 
 # Catch-all to serve static files or SPA index
 @app.get("/{full_path:path}", include_in_schema=False)
@@ -296,4 +433,3 @@ async def spa_fallback(full_path: str):
 
     # nothing found
     raise HTTPException(status_code=404)
-

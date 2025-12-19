@@ -1,7 +1,6 @@
 name: RanobeDB
-version: 0.1.0
+version: 0.1.1
 description: RanobeDB metadata source plugin
 author: Reuben Sinha
-type: metadata
 entry_point: ranobedb:RanobeDBPlugin
 dependencies: []

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import uuid4
 from urllib.parse import quote
-from typing import Any
+from typing import Any, Dict, List
 from pathlib import Path as PathlibPath
 
 from anyio import Path
@@ -17,20 +17,66 @@ from backend.core.plugins.metadata import (
     MetadataPlugin,
     SeriesFetchModel,
 )
+from backend.core.plugins.base import BasePlugin
 from .ranobedb_api import IMAGE_BASE_URL, download_image, get_series, get_series_by_id, get_book_by_id
 from . import rate_limiter
 
 
-class RanobeDBPlugin(MetadataPlugin):
-    """RanobeDB metadata plugin implementation."""
+class RanobeDBPlugin(BasePlugin):
+    """RanobeDB metadata plugin implementation.
+    
+    This plugin provides access to RanobeDB metadata. It can create
+    multiple metadata source instances with different configurations.
+    """
 
     name = "RanobeDB"
-    version = "1.0.0"
+    version = "0.1.0"
+    description = "Metadata plugin for RanobeDB"
+    enabled = True
+    
+    def start(self) -> None:
+        print("RanobeDB plugin started")
+    
+    def stop(self) -> None:
+        print("RanobeDB plugin stopped")
+    
+    def get_available_sources(self) -> List[Dict[str, Any]]:
+        """Return available metadata sources this plugin can provide.
+        
+        Returns:
+            List containing one source config for RanobeDB
+        """
+        return [{
+            "id": "ranobedb",
+            "name": "RanobeDB",
+            "description": "RanobeDB light novel metadata database",
+            "config_schema": {}  # No configuration needed
+        }]
+    
+    def create_metadata_source(self, config: Dict[str, Any]) -> MetadataPlugin:
+        """Create a configured RanobeDB metadata source instance.
+        
+        Args:
+            config: Configuration dictionary (not used for RanobeDB)
+            
+        Returns:
+            Configured RanobeDBMetadata instance
+        """
+        return RanobeDBMetadata(**config)
+
+
+class RanobeDBMetadata(MetadataPlugin):
+    """RanobeDB metadata source implementation."""
+
+    name = "RanobeDB"
+    version = "0.1.0"
     description = "Metadata plugin for RanobeDB"
     enabled = True
     _base_img_url = IMAGE_BASE_URL
 
-    IMG_API_URL = f"/api/v1/image/{name}"
+    # Image URL format: /api/v1/image/{plugin_name}/{source_name}/{filepath}
+    # For RanobeDB, both plugin and source are named "RanobeDB"
+    IMG_API_URL = f"/api/v1/image/{name}/RanobeDB"
     
     def __init__(self, **kwargs: Any):
         # Call parent to set up data_dir (pathlib.Path)

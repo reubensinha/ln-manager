@@ -117,7 +117,8 @@ export interface SeriesSourceResponse {
 
 export interface Series extends SeriesSourceResponse {
   id: string;
-  plugin: PluginResponse;
+  metadata_source?: MetadataSource;
+  group?: SeriesGroupsResponse;
   deleted: boolean;
   monitored: boolean;
   download_status: string;
@@ -145,6 +146,25 @@ export type PluginResponse = {
   enabled: boolean;
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
+};
+
+export type MetadataSource = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+};
+
+export type PluginCapability = {
+  id: string;
+  name: string;
+  description?: string;
+  config_schema?: Record<string, unknown>;
 };
 
 

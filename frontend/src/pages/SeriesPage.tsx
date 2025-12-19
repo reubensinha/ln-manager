@@ -109,12 +109,12 @@ function SeriesPage() {
   };
 
   const handleRefresh = async () => {
-    if (!series) return;
+    if (!series || !series.metadata_source) return;
 
     setIsRefreshing(true);
     try {
       await addSeries(
-        series.plugin.name,
+        series.metadata_source.id,
         series.external_id,
         seriesGroup?.id || ""
       );
@@ -227,7 +227,7 @@ function SeriesPage() {
                 value={seriesItem.id}
                 disabled={isRefreshing}
               >
-                {seriesItem.plugin.name}
+                {seriesItem.metadata_source?.name || "Unknown Source"}
               </Tabs.Tab>
             ))}
           </Tabs.List>

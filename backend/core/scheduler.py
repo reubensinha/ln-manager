@@ -11,6 +11,7 @@ from backend.core.database.models import (
     NotificationMessage,
     Release,
     Series,
+    MetadataSource,
 )
 from backend.core.services import metadata_service
 from backend.core.notifications import notification_manager
@@ -32,17 +33,26 @@ async def update_all_series_metadata():
         print(f"Found {len(series_list)} series to update.")
 
         for series in series_list:
-            # TODO: Log series without plugin or external_id are missing
-            if not series.plugin or not series.external_id:
+            # Skip series without metadata source or external_id
+            if not series.metadata_source or not series.external_id:
+                print(f"Skipping series {series.id} ({series.title}) - no metadata source or external ID")
                 continue
 
-            success = await metadata_service.fetch_series(
-                series.plugin.name, series.external_id, session=session
-            )
+            # Get the metadata source
+            metadata_source = series.metadata_source
+            if not metadata_source.enabled:
+                print(f"Skipping series {series.id} ({series.title}) - metadata source disabled")
+                continue
 
-            # TODO: Log success/failure
-            if not success:
-                print(f"Failed to update series {series.id} ({series.title})")
+            try:
+                success = await metadata_service.fetch_series(
+                    str(metadata_source.id), series.external_id, session=session
+                )
+
+                if not success:
+                    print(f"Failed to update series {series.id} ({series.title})")
+            except Exception as e:
+                print(f"Error updating series {series.id} ({series.title}): {e}")
         
         await notification_manager.broadcast(
             NotificationMessage(
