@@ -92,24 +92,25 @@ class PluginManager:
         """Unload a plugin by name, calling its stop() method for cleanup.
         
         Returns:
-            bool: True if plugin was unloaded, False if not found
+            bool: True if plugin was found (unloaded or attempted to unload),
+            False if not found.
         """
         if name in self.plugins:
             plugin = self.plugins[name]
-            plugin.stop()
-            del self.plugins[name]
+            try:
+                plugin.stop()
+            except Exception as e:
+                # Log but don't prevent further shutdown/unload operations
+                print(f"Error stopping plugin '{name}': {e}")
+            else:
+                del self.plugins[name]
             return True
         return False
     
     def shutdown_all_plugins(self) -> None:
-        """Call stop() on all loaded plugins for cleanup during application shutdown."""
-        ## TODO: call unload_plugin() instead?
-        for name, plugin in list(self.plugins.items()):
-            try:
-                plugin.stop()
-            except Exception as e:
-                # Log but don't stop shutdown process
-                print(f"Error stopping plugin '{name}': {e}")
+        """Call unload_plugin() on all loaded plugins for cleanup during application shutdown."""
+        for name in list(self.plugins.keys()):
+            self.unload_plugin(name)
     
     def get_plugin(self, name: str) -> BasePlugin | None:
         """Get a running plugin instance by name.
