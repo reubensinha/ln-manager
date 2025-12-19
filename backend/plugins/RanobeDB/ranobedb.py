@@ -466,12 +466,13 @@ class RanobeDBMetadata(MetadataPlugin):
                 and s.get("role")
             ]
 
-
-
             nsfw_img = False
             
-
-            img_filename = book_detail.get("image", {}).get("filename")
+            # Handle image with proper null checking
+            img_filename = None
+            if book_detail and book_detail.get("image"):
+                img_filename = book_detail.get("image", {}).get("filename")
+            
             img_path = await download_image(img_filename, self.img_dir) if img_filename else None
             if img_path:
                 # Get the relative path from data dir and URL-encode it
@@ -480,11 +481,11 @@ class RanobeDBMetadata(MetadataPlugin):
                 img_api = f"{self.IMG_API_URL}/{encoded_path}"
             else:
                 img_api = None
-            nsfw_img = (
-                book_detail.get("image", {}).get("nsfw", False)
-                if book_detail.get("image")
-                else False
-            )
+            
+            if book_detail and book_detail.get("image"):
+                nsfw_img = book_detail.get("image", {}).get("nsfw", False)
+            else:
+                nsfw_img = False
 
             # Assemble Data into BookFetchModel
             book_base = BookBase(
