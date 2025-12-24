@@ -175,3 +175,58 @@ export type Notification = {
   timestamp: string; // ISO 8601 date string
   read: boolean;
 }
+
+export type BackupInfo = {
+  filename: string;
+  path: string;
+  size: number;
+  created: string;
+  version?: string;
+  timestamp?: string;
+}
+
+export type TaskProgress = {
+  status: "pending" | "running" | "completed" | "failed";
+  progress: number;
+  message: string;
+  created_at: string;
+  completed_at: string | null;
+  result: unknown;
+  error: string | null;
+}
+
+export type BackupResponse = {
+  success: boolean;
+  message: string;
+  filename?: string;
+  path?: string;
+  size?: number;
+}
+
+export type BackupListResponse = {
+  success: boolean;
+  backups: BackupInfo[];
+  count: number;
+}
+
+export type TaskResponse = {
+  success: boolean;
+  task_id: string;
+  message: string;
+}
+
+export type TaskStatusResponse = {
+  success: boolean;
+  task: TaskProgress;
+}
+
+export type RestoreResponse = {
+  success: boolean;
+  message: string;
+  summary?: {
+    restored_tables: Record<string, number>;
+    restored_files: number;
+    backup_version: string | null;
+    backup_timestamp: string | null;
+  };
+}
