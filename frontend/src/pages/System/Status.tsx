@@ -428,7 +428,7 @@ function Status() {
         <Stack gap="md">
           {!selectedFile && (
             <Dropzone
-              onDrop={(files) => setSelectedFile(files[0])}
+              onDrop={(files: File[]) => setSelectedFile(files[0])}
               onReject={() => {
                 notifications.show({
                   title: "Error",
