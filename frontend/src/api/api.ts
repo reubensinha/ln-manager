@@ -10,6 +10,11 @@ import type {
   Notification,
   MetadataSource,
   PluginCapability,
+  BackupResponse,
+  BackupListResponse,
+  TaskResponse,
+  TaskStatusResponse,
+  RestoreResponse,
 } from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
@@ -301,5 +306,123 @@ export async function getPluginClients(pluginName: string): Promise<PluginCapabi
   } catch (error) {
     console.error("Error fetching plugin clients:", error);
     return [];
+  }
+}
+
+// Backup & Restore API
+
+export async function createBackup(): Promise<BackupResponse> {
+  try {
+    const response = await api.post(`/system/backup`);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating backup:", error);
+    return { success: false, message: "Failed to create backup" };
+  }
+}
+
+export async function createBackupAsync(): Promise<TaskResponse> {
+  try {
+    const response = await api.post(`/system/backup/async`);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating async backup:", error);
+    return { success: false, task_id: "", message: "Failed to start backup task" };
+  }
+}
+
+export async function listBackups(): Promise<BackupListResponse> {
+  try {
+    const response = await api.get(`/system/backups`);
+    return response.data;
+  } catch (error) {
+    console.error("Error listing backups:", error);
+    return { success: false, backups: [], count: 0 };
+  }
+}
+
+export async function downloadBackup(filename: string): Promise<Blob | null> {
+  try {
+    const response = await api.get(`/system/backup/download/${filename}`, {
+      responseType: "blob",
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error downloading backup:", error);
+    return null;
+  }
+}
+
+export async function deleteBackup(filename: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/system/backup/${filename}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting backup:", error);
+    return { success: false, message: "Failed to delete backup" };
+  }
+}
+
+export async function restoreBackup(
+  file: File,
+  overwrite: boolean = false
+): Promise<RestoreResponse> {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post(`/system/restore`, formData, {
+      params: { overwrite },
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error restoring backup:", error);
+    return { success: false, message: "Failed to restore backup" };
+  }
+}
+
+export async function restoreBackupAsync(
+  file: File,
+  overwrite: boolean = false
+): Promise<TaskResponse> {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await api.post(`/system/restore/async`, formData, {
+      params: { overwrite },
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error restoring backup async:", error);
+    return { success: false, task_id: "", message: "Failed to start restore task" };
+  }
+}
+
+export async function getTaskStatus(taskId: string): Promise<TaskStatusResponse | null> {
+  try {
+    const response = await api.get(`/system/task/${taskId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting task status:", error);
+    return null;
+  }
+}
+
+export async function clearTask(taskId: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/system/task/${taskId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error clearing task:", error);
+    return { success: false, message: "Failed to clear task" };
   }
 }

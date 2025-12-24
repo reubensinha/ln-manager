@@ -4,6 +4,7 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
 import '@mantine/spotlight/styles.css';
+import '@mantine/dropzone/styles.css';
 import 'mantine-datatable/styles.layer.css';
 
 import { MantineProvider } from "@mantine/core";
@@ -21,8 +22,9 @@ import SeriesPage from "./pages/SeriesPage.tsx";
 import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
 import CalendarPage from "./pages/CalendarPage.tsx";
-import NotificationsPage from "./pages/System/NotificationsPage.tsx";
 import PluginsPage from "./pages/Settings/PluginsPage.tsx";
+import NotificationsPage from "./pages/System/NotificationsPage.tsx";
+import Status from "./pages/System/Status.tsx";
 // import Vite from "./Vite.tsx";
 
 import { pluginManifests } from "./plugin-manifests";
@@ -62,6 +64,8 @@ function App() {
               <Route path="/settings/plugins" element={<PluginsPage />} />
 
               <Route path="/system/notifications" element={<NotificationsPage />} />
+              <Route path="/system/status" element={<Status />} />
+
               <Route path="*" element={<NothingFoundBackground />} />
 
               {/* Plugin Routes */}
