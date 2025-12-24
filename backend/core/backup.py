@@ -35,7 +35,7 @@ def serialize_model(obj: Any) -> dict | None:
     data = obj.model_dump(mode="json")
     # Convert datetime/date objects to ISO format strings
     for key, value in data.items():
-        if isinstance(value, (datetime,)):
+        if isinstance(value, datetime):
             data[key] = value.isoformat()
     return data
 
@@ -230,6 +230,7 @@ def restore_database(
             # Backup existing database if it exists
             if db_file.exists():
                 report_progress(25, "Creating safety backup of existing database...")
+                ## TODO: Workshop naming conventions
                 backup_existing = db_dir / f"lnauto.db.pre-restore.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 shutil.copy2(db_file, backup_existing)
 

@@ -14,7 +14,6 @@ from backend.core.backup import backup_database, restore_database, list_backups
 
 router = APIRouter()
 
-# In-memory storage for task progress (in production, use Redis or database)
 task_progress: dict[str, dict[str, Any]] = {}
 
 @router.get("/system/notifications", response_model=list[Notification])
@@ -111,11 +110,16 @@ async def download_backup(filename: str) -> FileResponse:
     Args:
         filename: Name of the backup file to download.
     """
-    backup_path = db_dir / filename
-    
-    if not backup_path.exists() or not backup_path.name.startswith("backup_"):
+    db_root = db_dir.resolve()
+    backup_path = (db_root / filename).resolve()
+
+    # Ensure the resolved path is within the backups directory and matches expected naming
+    if (
+        db_root not in backup_path.parents
+        or not backup_path.exists()
+        or not backup_path.name.startswith("backup_")
+    ):
         raise HTTPException(status_code=404, detail="Backup file not found")
-    
     return FileResponse(
         path=backup_path,
         filename=filename,
@@ -161,8 +165,7 @@ async def restore_backup(
     temp_backup = db_dir / f"temp_restore_{file.filename}"
     
     try:
-        # Save uploaded file temporarily
-        
+        # Persist the uploaded backup to a temporary file on disk so it can be validated and restored.
         with open(temp_backup, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -318,9 +321,16 @@ async def clear_task(task_id: str) -> dict[str, Any]:
 async def delete_backup(filename: str) -> dict[str, Any]:
     """
     Deletes a specific backup file.
-    
-    Args:
-        filename: Name of the backup file to delete.
+    # Resolve base backup directory and target path to prevent path traversal
+    backup_root = Path(db_dir).resolve()
+    backup_path = (backup_root / filename).resolve()
+
+    # Ensure the file exists, is directly within the backup directory, and matches expected naming
+    if (
+        not backup_path.is_file()
+        or backup_path.parent != backup_root
+        or not backup_path.name.startswith("backup_")
+    ):
     """
     backup_path = db_dir / filename
     

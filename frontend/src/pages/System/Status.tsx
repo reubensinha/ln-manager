@@ -10,6 +10,7 @@ import {
   Progress,
   Badge,
   Alert,
+  Checkbox,
 } from "@mantine/core";
 import { Dropzone, MIME_TYPES } from "@mantine/dropzone";
 import { DataTable } from "mantine-datatable";
@@ -197,13 +198,27 @@ function Status() {
 
   const handleRestoreFromTable = (backup: BackupInfo) => {
     // Convert backup to file for restore
-    downloadBackup(backup.filename).then((blob) => {
-      if (blob) {
-        const file = new File([blob], backup.filename, { type: "application/zip" });
-        setSelectedFile(file);
-        setRestoreModalOpened(true);
-      }
-    });
+    downloadBackup(backup.filename)
+      .then((blob) => {
+        if (blob) {
+          const file = new File([blob], backup.filename, { type: "application/zip" });
+          setSelectedFile(file);
+          setRestoreModalOpened(true);
+        } else {
+          notifications.show({
+            title: "Error",
+            message: "Failed to download backup for restore",
+            color: "red",
+          });
+        }
+      })
+      .catch((error) => {
+        notifications.show({
+          title: "Error",
+          message: `Failed to download backup for restore: ${error}`,
+          color: "red",
+        });
+      });
   };
 
   const handleRestoreSubmit = async () => {
@@ -466,17 +481,12 @@ function Status() {
               <Text size="sm">
                 Make sure you have a recent backup before proceeding. This action cannot be undone.
               </Text>
-              <Group gap="xs" mt="xs">
-                <input
-                  type="checkbox"
-                  id="overwrite-checkbox"
-                  checked={overwrite}
-                  onChange={(e) => setOverwrite(e.target.checked)}
-                />
-                <label htmlFor="overwrite-checkbox">
-                  <Text size="sm">I understand and want to overwrite existing data</Text>
-                </label>
-              </Group>
+              <Checkbox
+                mt="xs"
+                label="I understand and want to overwrite existing data"
+                checked={overwrite}
+                onChange={(e) => setOverwrite(e.currentTarget.checked)}
+              />
             </Stack>
           </Alert>
 
