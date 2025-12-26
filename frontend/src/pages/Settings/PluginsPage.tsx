@@ -3,7 +3,6 @@ import {
   Text,
   Button,
   Divider,
-  FileButton,
   Group,
   Stack,
   Modal,
@@ -20,11 +19,12 @@ import type { PluginResponse } from "../../api/ApiResponse";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
 import { TbAlertCircle, TbTrash } from "react-icons/tb";
+import FileUploadModal from "../../components/FileUploadModal";
 
 function PluginsPage() {
   const [plugins, setPlugins] = useState<PluginResponse[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [installModalOpened, setInstallModalOpened] = useState(false);
   const [restartModalOpened, setRestartModalOpened] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
@@ -52,7 +52,7 @@ function PluginsPage() {
 
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        // TODO: Pretty sure this just refreshes the page instead of restarting the frontend server which is what we want
+        // TODO: This currently reloads the page but need to restart backend and rebuild frontend.
         window.location.reload();
       } else {
         notifications.show({
@@ -77,8 +77,6 @@ function PluginsPage() {
     // Placeholder logic for installing a plugin
     if (!file) return;
 
-    setUploading(true);
-
     try {
       const result = await uploadPlugin(file);
 
@@ -90,6 +88,10 @@ function PluginsPage() {
         });
 
         setRestartModalOpened(true);
+        
+        // Refresh plugins list
+        const response = await getPlugins();
+        setPlugins(response);
       } else {
         notifications.show({
           title: "Error",
@@ -103,8 +105,6 @@ function PluginsPage() {
         message: `Failed to install plugin: ${error}`,
         color: "red",
       });
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -144,13 +144,9 @@ function PluginsPage() {
     <>
       <Stack>
         <Group>
-          <FileButton onChange={handleInstallPlugin} accept=".lna">
-            {(props) => (
-              <Button {...props} loading={uploading}>
-                Install Plugin
-              </Button>
-            )}
-          </FileButton>
+          <Button onClick={() => setInstallModalOpened(true)}>
+            Install Plugin
+          </Button>
         </Group>
         <Divider />
         <DataTable
@@ -178,6 +174,18 @@ function PluginsPage() {
           records={plugins}
         />
       </Stack>
+
+      <FileUploadModal
+        opened={installModalOpened}
+        onClose={() => setInstallModalOpened(false)}
+        onSubmit={handleInstallPlugin}
+        title="Install Plugin"
+        acceptedFileTypes={[".lna"]}
+        uploadPrompt="Drag plugin file here or click to select"
+        uploadDescription="Upload a .lna plugin file to install"
+        submitLabel="Install Plugin"
+        submitColor="blue"
+      />
 
       <Modal
         opened={restartModalOpened}
