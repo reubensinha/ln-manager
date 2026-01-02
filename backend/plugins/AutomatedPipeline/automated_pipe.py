@@ -80,7 +80,7 @@ class AutomatedPipe(Pipe):
             parse_results_stage,
             send_to_download_client_stage,
         ]
-
+        
     def _find_stage_index(self, stage_name: str) -> int:
         """Find the index of a stage by name.
 

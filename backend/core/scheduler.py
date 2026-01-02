@@ -16,7 +16,6 @@ from backend.core.database.models import (
 from backend.core.services import metadata_service
 from backend.core.notifications import notification_manager
 from backend.core.database.models import NotificationType
-from backend.core.services.pipeline.automated_pipe import automated_pipe
 from backend.core.services.library_service import get_all_series_groups
 
 scheduler = AsyncIOScheduler()
@@ -77,47 +76,3 @@ async def check_release_day():
                     message=f"New release today: {release.title} for book {release.book.title if release.book else 'Unknown'}",
                 )
             )
-
-
-async def run_automated_pipeline():
-    print("Running automated pipeline...")
-    try:
-        initial_data = {}
-        result = await automated_pipe.execute(initial_data)
-        
-        # Extract results from pipeline execution
-        indexer_results = result.get("indexer_results", [])
-        parsed_results = result.get("parsed_results", {})
-        sent_items = result.get("sent_items", [])
-        
-        # Log results
-        print(f"Indexer found {len(indexer_results)} results")
-        print(f"Parser matched {len(parsed_results)} items")
-        print(f"Sent {len(sent_items)} items to download client")
-        
-        # Send notification based on results
-        if sent_items:
-            await notification_manager.broadcast(
-                NotificationMessage(
-                    type=NotificationType.INFO,
-                    message=f"Automated pipeline completed: {len(sent_items)} item(s) sent to download client.",
-                )
-            )
-        elif indexer_results:
-            await notification_manager.broadcast(
-                NotificationMessage(
-                    type=NotificationType.INFO,
-                    message=f"Automated pipeline completed: {len(indexer_results)} result(s) found, but none matched monitored series.",
-                )
-            )
-        else:
-            print("No new releases found in indexer feeds")
-            
-    except Exception as e:
-        print(f"Error running automated pipeline: {e}")
-        await notification_manager.broadcast(
-            NotificationMessage(
-                type=NotificationType.ERROR,
-                message=f"Automated pipeline failed: {str(e)}",
-            )
-        )

@@ -130,3 +130,16 @@ class BasePlugin(ABC):
             Configured download client object (should inherit from DownloadClientPlugin interface)
         """
         raise NotImplementedError(f"{self.name} does not provide download clients")
+    
+    def get_scheduler_jobs(self) -> list[dict[str, Any]]:
+        """Return scheduled jobs this plugin wants to register.
+        
+        Each job dict should contain:
+            - 'func': Callable to execute
+            - 'trigger': Trigger type (e.g. 'interval', 'cron')
+            - Additional trigger parameters
+
+        Returns:
+            List of job definitions
+        """
+        return []

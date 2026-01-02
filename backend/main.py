@@ -44,7 +44,6 @@ from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
     check_release_day,
     update_all_series_metadata,
-    run_automated_pipeline,
 )
 
 
@@ -246,36 +245,18 @@ async def lifespan(app: FastAPI):
         
         session.commit()
 
-        # Check if there are any enabled indexers and download clients configured
-        has_indexer = (
-            session.exec(select(Indexer).where(Indexer.enabled == True)).first()
-            is not None
-        )
-        has_download_client = (
-            session.exec(
-                select(DownloadClient).where(DownloadClient.enabled == True)
-            ).first()
-            is not None
-        )
-
-        if has_indexer and has_download_client:
-            scheduler.add_job(
-                run_automated_pipeline,
-                "interval",
-                minutes=15,
-            )
-            print(
-                "Automated pipeline job scheduled (Indexer and Download Client plugins found)"
-            )
-        else:
-            missing = []
-            if not has_indexer:
-                missing.append("Indexer")
-            if not has_download_client:
-                missing.append("Download Client")
-            print(
-                f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}"
-            )
+        # Register scheduled jobs from all enabled plugins
+        # Plugins decide their own scheduling logic and requirements
+        for plugin_name, plugin_instance in plugin_manager.plugins.items():
+            try:
+                jobs = plugin_instance.get_scheduler_jobs()
+                
+                for job_config in jobs:
+                    scheduler.add_job(**job_config)
+                    print(f"Scheduled job '{job_config.get('id', 'unnamed')}' from {plugin_name} plugin")
+                        
+            except Exception as e:
+                print(f"Error registering scheduled jobs for {plugin_name}: {e}")
 
     scheduler.start()
     yield
