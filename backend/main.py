@@ -168,21 +168,30 @@ async def lifespan(app: FastAPI):
                 # Register plugin's indexers in database
                 try:
                     available_indexers = plugin_instance.get_available_indexers()
-                    advertised_names = {i["name"] for i in available_indexers}
+                    
+                    # Only auto-register indexers that are NOT user-configurable
+                    auto_register_indexers = [
+                        i for i in available_indexers 
+                        if not i.get("user_configurable", False)
+                    ]
+                    advertised_names = {i["name"] for i in auto_register_indexers}
                     
                     # Get all existing indexers for this plugin
                     existing_indexers = session.exec(
                         select(Indexer).where(Indexer.plugin_id == plugin.id)
                     ).all()
                     
-                    # Disable indexers that are no longer advertised
+                    # Only disable auto-registered indexers that are no longer advertised
+                    # Don't touch user-configured indexers (those with custom names/configs)
                     for existing in existing_indexers:
-                        if existing.name not in advertised_names:
+                        # Check if this looks like an auto-registered indexer
+                        # Auto-registered indexers have empty config dicts
+                        if (existing.config is None or existing.config == {}) and existing.name not in advertised_names:
                             existing.enabled = False
                             print(f"Disabled indexer '{existing.name}' (no longer advertised by {plugin.name})")
                     
                     # Add new advertised indexers (don't auto re-enable disabled ones)
-                    for indexer_info in available_indexers:
+                    for indexer_info in auto_register_indexers:
                         existing = session.exec(
                             select(Indexer)
                             .where(Indexer.name == indexer_info["name"])
@@ -388,6 +397,14 @@ app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
+
+# Include plugin-registered API routers
+for plugin_name, router in plugin_manager.get_plugin_routers().items():
+    app.include_router(
+        router,
+        prefix=f"/api/v1/plugins/{plugin_name}",
+        tags=[f"plugin:{plugin_name}"]
+    )
 
 
 @app.get("/", include_in_schema=False)

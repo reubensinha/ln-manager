@@ -3,7 +3,7 @@ import subprocess
 import importlib
 import sys
 from pathlib import Path
-from typing import Dict, Type
+from typing import Dict, Type, Any
 
 from backend.core.plugins.base import BasePlugin
 
@@ -29,6 +29,7 @@ class PluginManager:
     def __init__(self, plugin_dirs: list[Path] | None = None):
         self.plugin_dirs = plugin_dirs if plugin_dirs is not None else PLUGIN_DIRS
         self.plugins: Dict[str, BasePlugin] = {}  # name -> running instance
+        self.plugin_routers: Dict[str, Any] = {}  # name -> APIRouter instance
         
         # Ensure user plugin directory exists
         USER_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,6 +87,15 @@ class PluginManager:
         # Call start() to initialize the plugin
         instance.start()
         
+        # Register API router if the plugin provides one
+        try:
+            router = instance.get_api_router()
+            if router is not None:
+                self.plugin_routers[plugin_name] = router
+                print(f"Registered API router for plugin '{plugin_name}'")
+        except Exception as e:
+            print(f"Error registering API router for '{plugin_name}': {e}")
+        
         return instance
 
     def unload_plugin(self, name: str) -> bool:
@@ -104,6 +114,9 @@ class PluginManager:
                 print(f"Error stopping plugin '{name}': {e}")
             else:
                 del self.plugins[name]
+                # Also remove the router if it exists
+                if name in self.plugin_routers:
+                    del self.plugin_routers[name]
             return True
         return False
     
@@ -130,5 +143,13 @@ class PluginManager:
             Dictionary of plugin_name -> plugin_instance
         """
         return self.plugins
+    
+    def get_plugin_routers(self) -> Dict[str, Any]:
+        """Get all registered plugin API routers.
+        
+        Returns:
+            Dictionary of plugin_name -> APIRouter instance
+        """
+        return self.plugin_routers
 
 plugin_manager = PluginManager()

@@ -9,7 +9,7 @@ import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
 import classes from "./NavbarNested.module.css";
 import { pluginManifests } from "../../plugin-manifests";
-import { getPlugins } from "../../api/api";
+import { getPluginCapabilities } from "../../api/api";
 import { useLocation } from "react-router";
 
 import { type NavLink } from "../../types/NavLink";
@@ -17,16 +17,15 @@ import { type NavLink } from "../../types/NavLink";
 // TODO: Don't use pluginManifests. Instead, parse from getPlugins API call.
 //       For routes[].path and navbarLinks[].link prepend "/plugins/{plugin.name}".
 
-const pluginList = await getPlugins();
+const capabilities = await getPluginCapabilities();
 
-const isIndexerPlugin = pluginList?.some((p) => p.type === "indexer") ?? false;
-const isDownloadClientPlugin =
-  pluginList?.some((p) => p.type === "downloadclient") ?? false;
+const hasIndexers = capabilities.has_indexers;
+const hasDownloadClients = capabilities.has_download_clients;
 
 const coreLinkGroup: NavLink[] = [
   { label: "Library", icon: TbGauge, link: "/" },
   { label: "Calendar", icon: TbCalendarStats, link: "/calendar" },
-  ...(isIndexerPlugin
+  ...(hasIndexers
     ? [
         {
           label: "Activity",
@@ -43,11 +42,11 @@ const coreLinkGroup: NavLink[] = [
     label: "Settings",
     icon: TbGauge,
     links: [
-      ...(isDownloadClientPlugin
+      ...(hasDownloadClients
         ? [{ label: "Media Management", link: "/settings/mediamanagement" }]
         : []),
 
-      ...(isIndexerPlugin
+      ...(hasIndexers
         ? [
             { label: "Profiles", link: "/settings/profiles" },
             { label: "Custom Formats", link: "/settings/customformats" },
@@ -55,7 +54,7 @@ const coreLinkGroup: NavLink[] = [
           ]
         : []),
 
-      ...(isDownloadClientPlugin
+      ...(hasDownloadClients
         ? [{ label: "Download Clients", link: "/settings/downloadclients" }]
         : []),
 

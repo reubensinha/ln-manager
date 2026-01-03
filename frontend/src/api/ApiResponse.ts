@@ -230,3 +230,27 @@ export type RestoreResponse = {
     backup_timestamp: string | null;
   };
 }
+
+export type Indexer = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}
+
+export type DownloadClient = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}

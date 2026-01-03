@@ -15,6 +15,8 @@ import type {
   TaskResponse,
   TaskStatusResponse,
   RestoreResponse,
+  Indexer,
+  DownloadClient,
 } from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
@@ -214,6 +216,24 @@ export async function getPlugins(): Promise<PluginResponse[]> {
   }
 }
 
+export async function getPluginCapabilities(): Promise<{
+  has_indexers: boolean;
+  has_download_clients: boolean;
+  has_metadata_sources: boolean;
+}> {
+  try {
+    const response = await api.get(`/plugin-capabilities`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin capabilities:", error);
+    return {
+      has_indexers: false,
+      has_download_clients: false,
+      has_metadata_sources: false,
+    };
+  }
+}
+
 export async function uploadPlugin(
   file: File
 ): Promise<{ success: boolean; message: string }> {
@@ -305,6 +325,75 @@ export async function getPluginClients(pluginName: string): Promise<PluginCapabi
     return response.data;
   } catch (error) {
     console.error("Error fetching plugin clients:", error);
+    return [];
+  }
+}
+
+export async function getIndexers(): Promise<Indexer[]> {
+  try {
+    const response = await api.get(`/indexers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching indexers:", error);
+    return [];
+  }
+}
+
+export async function createIndexer(
+  indexer: Omit<Indexer, "id">
+): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
+  try {
+    const response = await api.post(`/indexers`, indexer);
+    return { success: true, indexer: response.data };
+  } catch (error) {
+    console.error("Error creating indexer:", error);
+    return { success: false, message: "Failed to create indexer" };
+  }
+}
+
+export async function updateIndexer(
+  indexerId: string,
+  indexer: Partial<Omit<Indexer, "id">>
+): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
+  try {
+    const response = await api.patch(`/indexers/${indexerId}`, indexer);
+    return { success: true, indexer: response.data };
+  } catch (error) {
+    console.error("Error updating indexer:", error);
+    return { success: false, message: "Failed to update indexer" };
+  }
+}
+
+export async function deleteIndexer(
+  indexerId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/indexers/${indexerId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting indexer:", error);
+    return { success: false, message: "Failed to delete indexer" };
+  }
+}
+
+export async function testIndexerConnection(
+  config: { plugin_id?: string; config: Record<string, unknown> }
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.post(`/indexers/test-connection`, config);
+    return response.data;
+  } catch (error) {
+    console.error("Error testing indexer connection:", error);
+    return { success: false, message: "Failed to test connection" };
+  }
+}
+
+export async function getDownloadClients(): Promise<DownloadClient[]> {
+  try {
+    const response = await api.get(`/download-clients`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching download clients:", error);
     return [];
   }
 }

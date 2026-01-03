@@ -23,6 +23,7 @@ import BookPage from "./pages/BookPage.tsx";
 import Search from "./pages/Search.tsx";
 import CalendarPage from "./pages/CalendarPage.tsx";
 import PluginsPage from "./pages/Settings/PluginsPage.tsx";
+import IndexersPage from "./pages/IndexersPage.tsx";
 import NotificationsPage from "./pages/System/NotificationsPage.tsx";
 import Status from "./pages/System/Status.tsx";
 // import Vite from "./Vite.tsx";
@@ -62,6 +63,7 @@ function App() {
               <Route path="/calendar" element={<CalendarPage />} />
 
               <Route path="/settings/plugins" element={<PluginsPage />} />
+              <Route path="/settings/indexers" element={<IndexersPage />} />
 
               <Route path="/system/notifications" element={<NotificationsPage />} />
               <Route path="/system/status" element={<Status />} />

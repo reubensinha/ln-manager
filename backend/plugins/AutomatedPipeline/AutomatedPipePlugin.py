@@ -2,8 +2,9 @@ from typing import Any
 from backend.core.plugins.generic import GenericPlugin
 from backend.plugins.AutomatedPipeline.automated_pipe import automated_pipe
 from backend.core.notifications import notification_manager
-from backend.core.database.models import NotificationMessage, NotificationType, Indexer, DownloadClient
+from backend.core.database.models import NotificationMessage, NotificationType, Plugin
 from backend.core.database.database import engine
+from backend.plugin_manager import plugin_manager
 from sqlmodel import Session, select
 
 
@@ -68,32 +69,48 @@ class AutomatedPipe(GenericPlugin):
     def get_scheduler_jobs(self) -> list[dict[str, Any]]:
         """Return the scheduled job configuration for the automated pipeline.
         
-        Only schedules the job if both an enabled Indexer and Download Client are available.
+        Only schedules the job if both an Indexer plugin and Download Client plugin are available.
         This allows the plugin to decide its own scheduling requirements without the core
         system needing to know about plugin-specific logic.
         """
-        # Check if requirements are met
+        # Check if required plugin capabilities are available
         with Session(engine) as session:
-            has_indexer = (
-                session.exec(select(Indexer).where(Indexer.enabled == True)).first()
-                is not None
-            )
-            has_download_client = (
-                session.exec(
-                    select(DownloadClient).where(DownloadClient.enabled == True)
-                ).first()
-                is not None
-            )
+            plugins = session.exec(select(Plugin).where(Plugin.enabled == True)).all()
             
-            if not (has_indexer and has_download_client):
+            has_indexer_plugin = False
+            has_download_client_plugin = False
+            
+            for plugin in plugins:
+                try:
+                    plugin_instance = plugin_manager.get_plugin(plugin.name)
+                    if plugin_instance:
+                        # Check if plugin has indexer capability
+                        try:
+                            indexers = plugin_instance.get_available_indexers()
+                            if indexers:
+                                has_indexer_plugin = True
+                        except (NotImplementedError, AttributeError):
+                            pass
+                        
+                        # Check if plugin has download client capability
+                        try:
+                            clients = plugin_instance.get_available_clients()
+                            if clients:
+                                has_download_client_plugin = True
+                        except (NotImplementedError, AttributeError):
+                            pass
+                except Exception:
+                    pass
+            
+            if not (has_indexer_plugin and has_download_client_plugin):
                 missing = []
-                if not has_indexer:
-                    missing.append("Indexer")
-                if not has_download_client:
-                    missing.append("Download Client")
+                if not has_indexer_plugin:
+                    missing.append("Indexer capability")
+                if not has_download_client_plugin:
+                    missing.append("Download Client capability")
                 print(
                     f"AutomatedPipeline: Not scheduling automated_pipeline job - "
-                    f"missing enabled plugins: {', '.join(missing)}"
+                    f"missing plugin capabilities: {', '.join(missing)}"
                 )
                 return []  # Don't schedule any jobs
         

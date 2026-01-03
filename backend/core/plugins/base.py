@@ -3,7 +3,8 @@ from pathlib import Path
 import os
 
 ## TODO: Try Avoid using Any
-from typing import Any
+from typing import Any, Optional
+from fastapi import APIRouter
 
 class BasePlugin(ABC):
     """Base interface for all plugins."""
@@ -97,6 +98,30 @@ class BasePlugin(ABC):
             List of client definitions with name, description, and config schema
         """
         return []
+    
+    def get_api_router(self) -> Optional[APIRouter]:
+        """Return an APIRouter for this plugin's custom endpoints.
+        
+        Plugins can override this method to register custom API routes.
+        The router will be automatically included in the FastAPI app at
+        /api/v1/plugins/{plugin_name}/
+        
+        Returns:
+            fastapi.APIRouter instance or None
+            
+        Example:
+            from fastapi import APIRouter
+            
+            def get_api_router(self):
+                router = APIRouter()
+                
+                @router.get("/status")
+                async def get_status():
+                    return {"status": "running"}
+                
+                return router
+        """
+        return None
     
     def create_metadata_source(self, config: dict[str, Any]):
         """Factory method to create a configured metadata source instance.

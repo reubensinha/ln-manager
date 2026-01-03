@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile
 from sqlmodel import Session, select
@@ -101,6 +102,51 @@ async def list_plugins(*, session: Session = Depends(get_session)):
     plugins = session.exec(select(Plugin)).all()
     return plugins
 
+
+@router.get("/plugin-capabilities")
+async def get_plugin_capabilities(*, session: Session = Depends(get_session)):
+    """Get a summary of what capabilities are available from enabled plugins."""
+    plugins = session.exec(select(Plugin).where(Plugin.enabled == True)).all()
+    
+    capabilities = {
+        "has_indexers": False,
+        "has_download_clients": False,
+        "has_metadata_sources": False,
+    }
+    
+    for plugin in plugins:
+        try:
+            plugin_instance = plugin_manager.get_plugin(plugin.name)
+            if plugin_instance:
+                # Check for indexer capability
+                try:
+                    indexers = plugin_instance.get_available_indexers()
+                    if indexers:
+                        capabilities["has_indexers"] = True
+                except (NotImplementedError, AttributeError):
+                    pass
+                
+                # Check for download client capability
+                try:
+                    clients = plugin_instance.get_available_clients()
+                    if clients:
+                        capabilities["has_download_clients"] = True
+                except (NotImplementedError, AttributeError):
+                    pass
+                
+                # Check for metadata source capability
+                try:
+                    sources = plugin_instance.get_available_sources()
+                    if sources:
+                        capabilities["has_metadata_sources"] = True
+                except (NotImplementedError, AttributeError):
+                    pass
+        except Exception:
+            pass
+    
+    return capabilities
+
+
 @router.post("/install-plugin", response_model=dict[str, str])
 async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)):
     return await _install_plugin_util(file, session)
@@ -108,4 +154,99 @@ async def install_plugin(*, file: UploadFile, session: Session = Depends(get_ses
 @router.delete("/plugins/{plugin_id}", response_model=dict[str, str])
 async def uninstall_plugin(*, plugin_id: UUID, session: Session = Depends(get_session)):
     return await _uninstall_plugin_util(plugin_id, session)
+
+
+@router.get("/indexers", response_model=list[IndexerPublic])
+async def list_indexers(*, session: Session = Depends(get_session)):
+    """Get all configured indexers."""
+    indexers = session.exec(select(Indexer)).all()
+    return indexers
+
+
+@router.post("/indexers/test-connection")
+async def test_indexer_connection(*, config: dict[str, Any], session: Session = Depends(get_session)):
+    """Test connection to an indexer without saving it.
+    
+    Args:
+        config: Indexer configuration including plugin_id, url, api_key, etc.
+    
+    Returns:
+        Dictionary with success status and message
+    """
+    try:
+        plugin_id = config.get("plugin_id")
+        if not plugin_id:
+            return {"success": False, "message": "plugin_id is required"}
+        
+        # Get the plugin
+        plugin = session.get(Plugin, UUID(plugin_id))
+        if not plugin:
+            return {"success": False, "message": "Plugin not found"}
+        
+        # Get the plugin instance
+        plugin_instance = plugin_manager.get_plugin(plugin.name)
+        if not plugin_instance:
+            return {"success": False, "message": "Plugin instance not found"}
+        
+        # Create a temporary indexer instance to test
+        try:
+            indexer_instance = plugin_instance.create_indexer(config.get("config", {}))
+            
+            # Test the connection
+            connection_ok = await indexer_instance.connect()
+            
+            if connection_ok:
+                return {"success": True, "message": "Connection successful!"}
+            else:
+                return {"success": False, "message": "Connection failed - unable to reach indexer"}
+        except Exception as e:
+            return {"success": False, "message": f"Connection test failed: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "message": f"Error testing connection: {str(e)}"}
+
+
+@router.post("/indexers", response_model=IndexerPublic)
+async def create_indexer(*, session: Session = Depends(get_session), indexer: IndexerBase):
+    """Create a new indexer instance."""
+    db_indexer = Indexer.model_validate(indexer)
+    session.add(db_indexer)
+    session.commit()
+    session.refresh(db_indexer)
+    return db_indexer
+
+
+@router.patch("/indexers/{indexer_id}", response_model=IndexerPublic)
+async def update_indexer(
+    *, session: Session = Depends(get_session), indexer_id: UUID, indexer: IndexerBase
+):
+    """Update an existing indexer instance."""
+    db_indexer = session.get(Indexer, indexer_id)
+    if not db_indexer:
+        raise HTTPException(status_code=404, detail="Indexer not found")
+    
+    indexer_data = indexer.model_dump(exclude_unset=True)
+    db_indexer.sqlmodel_update(indexer_data)
+    session.add(db_indexer)
+    session.commit()
+    session.refresh(db_indexer)
+    return db_indexer
+
+
+@router.delete("/indexers/{indexer_id}", response_model=dict[str, str])
+async def delete_indexer(*, session: Session = Depends(get_session), indexer_id: UUID):
+    """Delete an indexer instance."""
+    db_indexer = session.get(Indexer, indexer_id)
+    if not db_indexer:
+        raise HTTPException(status_code=404, detail="Indexer not found")
+    
+    session.delete(db_indexer)
+    session.commit()
+    return {"success": "true", "message": "Indexer deleted successfully"}
+
+
+@router.get("/download-clients", response_model=list[DownloadClientPublic])
+async def list_download_clients(*, session: Session = Depends(get_session)):
+    """Get all configured download clients."""
+    clients = session.exec(select(DownloadClient)).all()
+    return clients
 
