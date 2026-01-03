@@ -92,16 +92,25 @@ async def search_indexer(indexer_id, query, session: Session = Depends(get_sessi
         session: Database session
     """
     indexer = session.get(Indexer, indexer_id)
+    
+    print(f"[DEBUG] search_indexer called with indexer_id={indexer_id}, query={query}")
+    
+    if not indexer:
+        print(f"[DEBUG] Indexer not found: {indexer_id}")
+        return None
         
-    if not indexer or not indexer.enabled:
+    if not indexer.enabled:
+        print(f"[DEBUG] Indexer '{indexer.name}' is disabled")
         return None
     
     if not indexer.plugin:
+        print(f"[DEBUG] Indexer '{indexer.name}' has no plugin")
         return None
     
     # Get the plugin instance
     plugin = plugin_manager.get_plugin(indexer.plugin.name)
     if not plugin:
+        print(f"[DEBUG] Plugin '{indexer.plugin.name}' not found in plugin_manager")
         return None
     
     indexer_instance = None
@@ -109,6 +118,7 @@ async def search_indexer(indexer_id, query, session: Session = Depends(get_sessi
         # Use plugin's factory method to create configured indexer
         indexer_instance = plugin.create_indexer(indexer.config or {})
         if not isinstance(indexer_instance, IndexerPlugin):
+            print(f"[DEBUG] Created instance is not an IndexerPlugin: {type(indexer_instance)}")
             return None
         
         return await indexer_instance.search(query)
