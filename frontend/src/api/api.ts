@@ -528,3 +528,14 @@ export async function searchIndexers(query: string): Promise<IndexerResult[]> {
     return [];
   }
 }
+export async function searchSpecificIndexer(indexerId: string, query: string): Promise<IndexerResult[]> {
+  try {
+    const response = await api.get(`/indexers/search/${indexerId}`, {
+      params: { query },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching specific indexer:", error);
+    return [];
+  }
+}

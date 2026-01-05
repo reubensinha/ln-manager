@@ -10,13 +10,9 @@ import {
   Badge,
   Button,
   Divider,
-  Modal,
-  TextInput,
-  Loader,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
-import { searchIndexers } from "../api/api";
 import type { SeriesSourceResponse, IndexerResult } from "../api/ApiResponse";
 import type { PublishingStatus } from "../types/MetadataFieldTypes";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
@@ -44,36 +40,7 @@ function getStatusColor(status?: PublishingStatus): string {
 function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
   const [showNsfw, setShowNsfw] = useState(false);
   const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<IndexerResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const shouldBlur = BLUR_NSFW && series.nsfw_img && !showNsfw;
-
-  const handleInteractiveSearch = () => {
-    // Pre-fill search with series title
-    setSearchQuery(series.title);
-    openSearchModal();
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
-    setSearching(true);
-    try {
-      const results = await searchIndexers(searchQuery);
-      // Map results to include indexer_name from the response
-      const mappedResults = results.map((result) => ({
-        ...result,
-        indexer_name: result.indexer_name || "Unknown",
-      }));
-      setSearchResults(mappedResults);
-    } catch (error) {
-      console.error("Error searching indexers:", error);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  };
 
   const handleDownload = (result: IndexerResult) => {
     // TODO: Implement download functionality
@@ -364,7 +331,7 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
             <Button
               variant="outline"
               leftSection={<TbSearch size={18} />}
-              onClick={handleInteractiveSearch}
+              onClick={openSearchModal}
             >
               Interactive Search
             </Button>
@@ -448,45 +415,12 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
       )}
 
       {/* Interactive Search Modal */}
-      <Modal
+      <IndexerResultTable
         opened={searchModalOpened}
         onClose={closeSearchModal}
-        title="Interactive Search"
-        size="xl"
-        centered
-      >
-        <Stack gap="md">
-          <Group gap="sm">
-            <TextInput
-              placeholder="Search for releases..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSearch();
-                }
-              }}
-              leftSection={<TbSearch size={16} />}
-              style={{ flex: 1 }}
-            />
-            <Button onClick={handleSearch} loading={searching}>
-              Search
-            </Button>
-          </Group>
-
-          {searching ? (
-            <Center p="xl">
-              <Loader />
-            </Center>
-          ) : (
-            <IndexerResultTable
-              results={searchResults}
-              loading={searching}
-              onDownload={handleDownload}
-            />
-          )}
-        </Stack>
-      </Modal>
+        initialQuery={series.title}
+        onDownload={handleDownload}
+      />
     </Stack>
   );
 }

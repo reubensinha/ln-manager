@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { DataTable } from "mantine-datatable";
 import type { DataTableSortStatus } from "mantine-datatable";
 import {
@@ -12,25 +12,32 @@ import {
   Stack,
   Box,
   Button,
+  Modal,
+  Select,
+  Center,
+  Loader,
 } from "@mantine/core";
 import { TbDownload, TbAlertCircle, TbSearch } from "react-icons/tb";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import type { IndexerResult } from "../../api/ApiResponse";
+import type { IndexerResult, Indexer } from "../../api/ApiResponse";
+import { searchIndexers, searchSpecificIndexer, getIndexers } from "../../api/api";
 
 dayjs.extend(relativeTime);
 
 interface IndexerResultTableProps {
-  results: IndexerResult[];
-  loading?: boolean;
+  opened: boolean;
+  onClose: () => void;
+  initialQuery?: string;
   onDownload?: (result: IndexerResult) => void;
 }
 
 const PAGE_SIZE = 25;
 
 export function IndexerResultTable({
-  results,
-  loading = false,
+  opened,
+  onClose,
+  initialQuery = "",
   onDownload,
 }: IndexerResultTableProps) {
   const [page, setPage] = useState(1);
@@ -40,10 +47,59 @@ export function IndexerResultTable({
   });
   const [indexerFilter, setIndexerFilter] = useState("");
   const [minScore, setMinScore] = useState<number | string>("");
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [searchResults, setSearchResults] = useState<IndexerResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [indexers, setIndexers] = useState<Indexer[]>([]);
+  const [selectedIndexer, setSelectedIndexer] = useState<string | null>("all");
+
+  // Update search query when initialQuery changes or modal opens
+  useEffect(() => {
+    if (opened) {
+      setSearchQuery(initialQuery);
+      setSelectedIndexer("all");
+      loadIndexers();
+    }
+  }, [opened, initialQuery]);
+
+  const loadIndexers = async () => {
+    try {
+      const indexerList = await getIndexers();
+      setIndexers(indexerList.filter(i => i.enabled));
+    } catch (error) {
+      console.error("Error loading indexers:", error);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setSearching(true);
+    try {
+      let results: IndexerResult[];
+      
+      if (selectedIndexer === "all" || !selectedIndexer) {
+        results = await searchIndexers(searchQuery);
+      } else {
+        results = await searchSpecificIndexer(selectedIndexer, searchQuery);
+      }
+      
+      const mappedResults = results.map((result) => ({
+        ...result,
+        indexer_name: result.indexer_name || "Unknown",
+      }));
+      setSearchResults(mappedResults);
+    } catch (error) {
+      console.error("Error searching indexers:", error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   // Filter and sort results
   const processedResults = useMemo(() => {
-    let filtered = results;
+    let filtered = searchResults;
 
     // Apply indexer name filter
     if (indexerFilter) {
@@ -87,7 +143,7 @@ export function IndexerResultTable({
     });
 
     return sorted;
-  }, [results, indexerFilter, minScore, sortStatus]);
+  }, [searchResults, indexerFilter, minScore, sortStatus]);
 
   // Paginate results
   const paginatedResults = useMemo(() => {
@@ -110,204 +166,252 @@ export function IndexerResultTable({
   };
 
   return (
-    <Stack gap="md">
-      {/* Filters */}
-      <Group gap="md">
-        <TextInput
-          placeholder="Filter by indexer name..."
-          value={indexerFilter}
-          onChange={(e) => setIndexerFilter(e.currentTarget.value)}
-          leftSection={<TbSearch size={16} />}
-          style={{ flex: 1 }}
-        />
-        <NumberInput
-          placeholder="Min score"
-          value={minScore}
-          onChange={setMinScore}
-          min={0}
-          max={100}
-          style={{ width: 150 }}
-        />
-        {(indexerFilter || minScore !== "") && (
-          <Button
-            variant="subtle"
-            onClick={() => {
-              setIndexerFilter("");
-              setMinScore("");
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Interactive Search"
+      size="xl"
+      centered
+    >
+      <Stack gap="md">
+        {/* Search Controls */}
+        <Group gap="sm">
+          <TextInput
+            placeholder="Search for releases..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch();
+              }
             }}
-          >
-            Clear Filters
+            leftSection={<TbSearch size={16} />}
+            style={{ flex: 1 }}
+          />
+          <Select
+            placeholder="Select indexer"
+            value={selectedIndexer}
+            onChange={setSelectedIndexer}
+            data={[
+              { value: "all", label: "All Indexers" },
+              ...indexers.map(indexer => ({
+                value: indexer.id,
+                label: indexer.name
+              }))
+            ]}
+            style={{ width: 200 }}
+          />
+          <Button onClick={handleSearch} loading={searching}>
+            Search
           </Button>
-        )}
-      </Group>
+        </Group>
 
-      {/* Results Table */}
-      <DataTable
-        withTableBorder
-        borderRadius="sm"
-        striped
-        highlightOnHover
-        records={paginatedResults}
-        columns={[
-          {
-            accessor: "pub_date",
-            title: "Age",
-            sortable: true,
-            width: 120,
-            render: (result) => (
-              <Text size="sm" c="dimmed">
-                {formatAge(result.pub_date)}
-              </Text>
-            ),
-          },
-          {
-            accessor: "title",
-            title: "Title",
-            sortable: true,
-            ellipsis: true,
-            render: (result) => (
-              <Tooltip label={result.title} multiline maw={400}>
-                <Text size="sm" lineClamp={2}>
-                  {result.title}
-                </Text>
-              </Tooltip>
-            ),
-          },
-          {
-            accessor: "indexer_name",
-            title: "Indexer",
-            sortable: true,
-            width: 120,
-            render: (result) => (
-              <Badge size="sm" variant="light">
-                {result.indexer_name || "Unknown"}
-              </Badge>
-            ),
-          },
-          {
-            accessor: "size",
-            title: "Size",
-            sortable: true,
-            width: 100,
-            render: (result) => (
-              <Text size="sm">{formatBytes(result.size)}</Text>
-            ),
-          },
-          {
-            accessor: "seeders",
-            title: "Seeders",
-            sortable: true,
-            width: 90,
-            render: (result) => (
-              <Text size="sm" c={result.seeders ? "green" : "dimmed"}>
-                {result.seeders ?? 0}
-              </Text>
-            ),
-          },
-          {
-            accessor: "peers",
-            title: "Peers",
-            sortable: true,
-            width: 90,
-            render: (result) => (
-              <Text size="sm" c={result.peers ? "blue" : "dimmed"}>
-                {result.peers ?? 0}
-              </Text>
-            ),
-          },
-          {
-            accessor: "score",
-            title: "Score",
-            sortable: true,
-            width: 80,
-            render: (result) => (
-              <Badge
-                size="sm"
-                color={
-                  (result.score ?? 0) >= 80
-                    ? "green"
-                    : (result.score ?? 0) >= 50
-                    ? "yellow"
-                    : "red"
-                }
-              >
-                {result.score ?? 0}
-              </Badge>
-            ),
-          },
-          {
-            accessor: "rejections",
-            title: "Rejected",
-            width: 90,
-            render: (result) => {
-              const hasRejections =
-                result.rejections && result.rejections.length > 0;
-              return hasRejections ? (
-                <Tooltip
-                  label={
-                    <Box>
-                      <Text size="sm" fw={600} mb={4}>
-                        Rejections:
-                      </Text>
-                      {result.rejections!.map((rejection, idx) => (
-                        <Text key={idx} size="xs">
-                          • {rejection}
-                        </Text>
-                      ))}
-                    </Box>
-                  }
-                  multiline
-                  maw={300}
+        {searching ? (
+          <Center p="xl">
+            <Loader />
+          </Center>
+        ) : (
+          <>
+            {/* Filters */}
+            <Group gap="md">
+              <TextInput
+                placeholder="Filter by indexer name..."
+                value={indexerFilter}
+                onChange={(e) => setIndexerFilter(e.currentTarget.value)}
+                leftSection={<TbSearch size={16} />}
+                style={{ flex: 1 }}
+              />
+              <NumberInput
+                placeholder="Min score"
+                value={minScore}
+                onChange={setMinScore}
+                min={0}
+                max={100}
+                style={{ width: 150 }}
+              />
+              {(indexerFilter || minScore !== "") && (
+                <Button
+                  variant="subtle"
+                  onClick={() => {
+                    setIndexerFilter("");
+                    setMinScore("");
+                  }}
                 >
-                  <Badge color="red" size="sm" leftSection={<TbAlertCircle size={12} />}>
-                    Yes
-                  </Badge>
-                </Tooltip>
-              ) : (
-                <Badge color="gray" size="sm" variant="light">
-                  No
-                </Badge>
-              );
-            },
-          },
-          {
-            accessor: "actions",
-            title: "Actions",
-            width: 80,
-            textAlign: "center",
-            render: (result) => (
-              <Group gap={4} justify="center">
-                <Tooltip label="Download (Coming Soon)">
-                  <ActionIcon
-                    variant="subtle"
-                    color="blue"
-                    onClick={() => onDownload?.(result)}
-                    disabled={!onDownload}
-                  >
-                    <TbDownload size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            ),
-          },
-        ]}
-        totalRecords={processedResults.length}
-        recordsPerPage={PAGE_SIZE}
-        page={page}
-        onPageChange={setPage}
-        sortStatus={sortStatus}
-        onSortStatusChange={setSortStatus}
-        fetching={loading}
-        noRecordsText="No results found"
-        minHeight={150}
-      />
+                  Clear Filters
+                </Button>
+              )}
+            </Group>
 
-      {/* Results summary */}
-      <Text size="sm" c="dimmed">
-        Showing {paginatedResults.length} of {processedResults.length} results
-        {processedResults.length !== results.length &&
-          ` (filtered from ${results.length} total)`}
-      </Text>
-    </Stack>
+            {/* Results Table */}
+            <DataTable
+              withTableBorder
+              borderRadius="sm"
+              striped
+              highlightOnHover
+              records={paginatedResults}
+              columns={[
+                {
+                  accessor: "pub_date",
+                  title: "Age",
+                  sortable: true,
+                  width: 120,
+                  render: (result) => (
+                    <Text size="sm" c="dimmed">
+                      {formatAge(result.pub_date)}
+                    </Text>
+                  ),
+                },
+                {
+                  accessor: "title",
+                  title: "Title",
+                  sortable: true,
+                  ellipsis: true,
+                  render: (result) => (
+                    <Tooltip label={result.title} multiline maw={400}>
+                      <Text size="sm" lineClamp={2}>
+                        {result.title}
+                      </Text>
+                    </Tooltip>
+                  ),
+                },
+                {
+                  accessor: "indexer_name",
+                  title: "Indexer",
+                  sortable: true,
+                  width: 120,
+                  render: (result) => (
+                    <Badge size="sm" variant="light">
+                      {result.indexer_name || "Unknown"}
+                    </Badge>
+                  ),
+                },
+                {
+                  accessor: "size",
+                  title: "Size",
+                  sortable: true,
+                  width: 100,
+                  render: (result) => (
+                    <Text size="sm">{formatBytes(result.size)}</Text>
+                  ),
+                },
+                {
+                  accessor: "seeders",
+                  title: "Seeders",
+                  sortable: true,
+                  width: 90,
+                  render: (result) => (
+                    <Text size="sm" c={result.seeders ? "green" : "dimmed"}>
+                      {result.seeders ?? 0}
+                    </Text>
+                  ),
+                },
+                {
+                  accessor: "peers",
+                  title: "Peers",
+                  sortable: true,
+                  width: 90,
+                  render: (result) => (
+                    <Text size="sm" c={result.peers ? "blue" : "dimmed"}>
+                      {result.peers ?? 0}
+                    </Text>
+                  ),
+                },
+                {
+                  accessor: "score",
+                  title: "Score",
+                  sortable: true,
+                  width: 80,
+                  render: (result) => (
+                    <Badge
+                      size="sm"
+                      color={
+                        (result.score ?? 0) >= 80
+                          ? "green"
+                          : (result.score ?? 0) >= 50
+                          ? "yellow"
+                          : "red"
+                      }
+                    >
+                      {result.score ?? 0}
+                    </Badge>
+                  ),
+                },
+                {
+                  accessor: "rejections",
+                  title: "Rejected",
+                  width: 90,
+                  render: (result) => {
+                    const hasRejections =
+                      result.rejections && result.rejections.length > 0;
+                    return hasRejections ? (
+                      <Tooltip
+                        label={
+                          <Box>
+                            <Text size="sm" fw={600} mb={4}>
+                              Rejections:
+                            </Text>
+                            {result.rejections!.map((rejection, idx) => (
+                              <Text key={idx} size="xs">
+                                • {rejection}
+                              </Text>
+                            ))}
+                          </Box>
+                        }
+                        multiline
+                        maw={300}
+                      >
+                        <Badge color="red" size="sm" leftSection={<TbAlertCircle size={12} />}>
+                          Yes
+                        </Badge>
+                      </Tooltip>
+                    ) : (
+                      <Badge color="gray" size="sm" variant="light">
+                        No
+                      </Badge>
+                    );
+                  },
+                },
+                {
+                  accessor: "actions",
+                  title: "Actions",
+                  width: 80,
+                  textAlign: "center",
+                  render: (result) => (
+                    <Group gap={4} justify="center">
+                      <Tooltip label="Download (Coming Soon)">
+                        <ActionIcon
+                          variant="subtle"
+                          color="blue"
+                          onClick={() => onDownload?.(result)}
+                          disabled={!onDownload}
+                        >
+                          <TbDownload size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  ),
+                },
+              ]}
+              totalRecords={processedResults.length}
+              recordsPerPage={PAGE_SIZE}
+              page={page}
+              onPageChange={setPage}
+              sortStatus={sortStatus}
+              onSortStatusChange={setSortStatus}
+              fetching={searching}
+              noRecordsText="No results found"
+              minHeight={150}
+            />
+
+            {/* Results summary */}
+            <Text size="sm" c="dimmed">
+              Showing {paginatedResults.length} of {processedResults.length} results
+              {processedResults.length !== searchResults.length &&
+                ` (filtered from ${searchResults.length} total)`}
+            </Text>
+          </>
+        )}
+      </Stack>
+    </Modal>
   );
 }
