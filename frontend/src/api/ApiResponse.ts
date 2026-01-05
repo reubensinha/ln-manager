@@ -254,3 +254,20 @@ export type DownloadClient = {
   plugin_id?: string;
   plugin?: PluginResponse;
 }
+
+export type IndexerResult = {
+  title: string;
+  link?: string;
+  download_url?: string;
+  guid?: string;
+  pub_date?: string;
+  size?: number;
+  seeders?: number;
+  peers?: number;
+  category?: string[];
+  description?: string;
+  torznab_attrs?: Record<string, string>;
+  indexer_name?: string;
+  score?: number;
+  rejections?: string[];
+}

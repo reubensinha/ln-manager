@@ -17,6 +17,7 @@ import type {
   RestoreResponse,
   Indexer,
   DownloadClient,
+  IndexerResult,
 } from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
@@ -513,5 +514,17 @@ export async function clearTask(taskId: string): Promise<{ success: boolean; mes
   } catch (error) {
     console.error("Error clearing task:", error);
     return { success: false, message: "Failed to clear task" };
+  }
+}
+
+export async function searchIndexers(query: string): Promise<IndexerResult[]> {
+  try {
+    const response = await api.get(`/indexers/search`, {
+      params: { query }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching indexers:", error);
+    return [];
   }
 }

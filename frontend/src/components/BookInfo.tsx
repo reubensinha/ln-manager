@@ -11,19 +11,29 @@ import {
   Center,
   Divider,
   Button,
+  Modal,
+  TextInput,
+  Loader,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { TbEyeOff } from "react-icons/tb";
+import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
 
-import { toggleBookDownloaded } from "../api/api";
-import type { Book } from "../api/ApiResponse";
+import { toggleBookDownloaded, searchIndexers } from "../api/api";
+import type { Book, IndexerResult } from "../api/ApiResponse";
+import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
+
+// TODO: Make this look better for mobile
 const BLUR_NSFW: boolean = true;
 
 function BookInfo({ book }: { book: Book }) {
   const [showNsfw, { open: openNsfw }] = useDisclosure(false);
   const [isDownloaded, setIsDownloaded] = useState(book.downloaded);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<IndexerResult[]>([]);
+  const [searching, setSearching] = useState(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
 
   useEffect(() => {
@@ -40,6 +50,37 @@ function BookInfo({ book }: { book: Book }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleInteractiveSearch = () => {
+    // Pre-fill search with book title
+    setSearchQuery(book.title);
+    openSearchModal();
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setSearching(true);
+    try {
+      const results = await searchIndexers(searchQuery);
+      // Map results to include indexer_name from the response
+      const mappedResults = results.map((result) => ({
+        ...result,
+        indexer_name: result.indexer_name || "Unknown",
+      }));
+      setSearchResults(mappedResults);
+    } catch (error) {
+      console.error("Error searching indexers:", error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleDownload = (result: IndexerResult) => {
+    // TODO: Implement download functionality
+    console.log("Download requested for:", result);
   };
 
   return (
@@ -189,13 +230,31 @@ function BookInfo({ book }: { book: Book }) {
             </Stack>
           )}
 
-          <Button
-            onClick={handleToggleDownloaded}
-            loading={isLoading}
-            variant={isDownloaded ? "light" : "filled"}
-          >
-            {isDownloaded ? "In Library" : "Add to Library"}
-          </Button>
+          <Group gap="sm">
+            <Button
+              onClick={handleToggleDownloaded}
+              loading={isLoading}
+              variant={isDownloaded ? "light" : "filled"}
+            >
+              {isDownloaded ? "In Library" : "Add to Library"}
+            </Button>
+
+            <Button
+              variant="default"
+              leftSection={<TbRobot size={18} />}
+              disabled
+            >
+              Automatic Search
+            </Button>
+
+            <Button
+              variant="outline"
+              leftSection={<TbSearch size={18} />}
+              onClick={handleInteractiveSearch}
+            >
+              Interactive Search
+            </Button>
+          </Group>
         </Stack>
       </Group>
 
@@ -213,6 +272,47 @@ function BookInfo({ book }: { book: Book }) {
           </Box>
         </>
       )}
+
+      {/* Interactive Search Modal */}
+      <Modal
+        opened={searchModalOpened}
+        onClose={closeSearchModal}
+        title="Interactive Search"
+        size="xl"
+        centered
+      >
+        <Stack gap="md">
+          <Group gap="sm">
+            <TextInput
+              placeholder="Search for releases..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+              leftSection={<TbSearch size={16} />}
+              style={{ flex: 1 }}
+            />
+            <Button onClick={handleSearch} loading={searching}>
+              Search
+            </Button>
+          </Group>
+
+          {searching ? (
+            <Center p="xl">
+              <Loader />
+            </Center>
+          ) : (
+            <IndexerResultTable
+              results={searchResults}
+              loading={searching}
+              onDownload={handleDownload}
+            />
+          )}
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

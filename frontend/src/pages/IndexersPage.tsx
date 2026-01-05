@@ -16,8 +16,8 @@ import {
 import { TbDots, TbTrash, TbSettings } from "react-icons/tb";
 import { getIndexers, createIndexer, updateIndexer, deleteIndexer } from "../api/api";
 import type { Indexer, PluginCapability } from "../api/ApiResponse";
-import { AddIndexerModal } from "../components/AddIndexerModal";
-import { IndexerConfigModal } from "../components/IndexerConfigModal";
+import { AddIndexerModal } from "../components/Indexer/AddIndexerModal";
+import { IndexerConfigModal } from "../components/Indexer/IndexerConfigModal";
 
 function IndexersPage() {
   const [indexers, setIndexers] = useState<Indexer[]>([]);

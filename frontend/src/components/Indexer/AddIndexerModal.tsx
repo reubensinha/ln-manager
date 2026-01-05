@@ -1,7 +1,7 @@
 import { Modal, Stack, Card, Text, Group, Badge } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { getPlugins, getPluginIndexers } from "../api/api";
-import type { PluginResponse, PluginCapability } from "../api/ApiResponse";
+import { getPlugins, getPluginIndexers } from "../../api/api";
+import type { PluginResponse, PluginCapability } from "../../api/ApiResponse";
 
 interface AddIndexerModalProps {
   opened: boolean;

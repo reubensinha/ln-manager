@@ -1,12 +1,9 @@
 """API endpoints for plugin discovery and capabilities."""
 
 from typing import Dict, List, Any
-from fastapi import APIRouter, HTTPException, Depends
-from sqlmodel import Session
+from fastapi import APIRouter, HTTPException
 
 from backend.plugin_manager import plugin_manager
-from backend.core.database.database import get_session
-from backend.core.services import indexer_service
 
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -94,82 +91,3 @@ async def get_available_clients(plugin_name: str) -> List[Dict[str, Any]]:
     except NotImplementedError:
         return []
 
-
-@router.get("/indexers/search")
-async def search_all_indexers(
-    query: str,
-    session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
-    """Search across all enabled indexers.
-    
-    Args:
-        query: Search query string
-        session: Database session
-        
-    Returns:
-        Aggregated search results from all enabled indexers
-    """
-    results = await indexer_service.search_all_indexers(query, session)
-    return results or []
-
-
-@router.get("/indexers/search/{indexer_id}")
-async def search_specific_indexer(
-    indexer_id: str,
-    query: str,
-    session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
-    """Search a specific indexer by ID.
-    
-    Args:
-        indexer_id: UUID of the indexer
-        query: Search query string
-        session: Database session
-        
-    Returns:
-        Search results from the specified indexer
-    """
-    results = await indexer_service.search_indexer(indexer_id, query, session)
-    
-    if results is None:
-        raise HTTPException(status_code=404, detail="Indexer not found or disabled")
-    
-    return results
-
-
-@router.get("/indexers/feed")
-async def get_all_indexers_feed(
-    session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
-    """Get RSS/feed from all enabled indexers.
-    
-    Args:
-        session: Database session
-        
-    Returns:
-        Aggregated feed items from all enabled indexers
-    """
-    results = await indexer_service.get_all_feeds(session)
-    return results or []
-
-
-@router.get("/indexers/feed/{indexer_id}")
-async def get_indexer_feed_by_id(
-    indexer_id: str,
-    session: Session = Depends(get_session)
-) -> List[Dict[str, Any]]:
-    """Get RSS/feed from a specific indexer by ID.
-    
-    Args:
-        indexer_id: UUID of the indexer
-        session: Database session
-        
-    Returns:
-        Feed items from the specified indexer
-    """
-    results = await indexer_service.get_feed(indexer_id, session)
-    
-    if results is None:
-        raise HTTPException(status_code=404, detail="Indexer not found or disabled")
-    
-    return results

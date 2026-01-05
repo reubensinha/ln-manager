@@ -47,7 +47,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata, system, plugins
+from .api.v1 import core, metadata, system, plugins, indexers
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -397,6 +397,7 @@ app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
+app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
 
 # Include plugin-registered API routers
 for plugin_name, router in plugin_manager.get_plugin_routers().items():

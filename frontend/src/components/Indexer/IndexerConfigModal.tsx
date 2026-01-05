@@ -1,6 +1,6 @@
 import { Modal } from "@mantine/core";
-import { pluginManifests } from "../plugin-manifests";
-import type { PluginCapability, Indexer } from "../api/ApiResponse";
+import { pluginManifests } from "../../plugin-manifests";
+import type { PluginCapability, Indexer } from "../../api/ApiResponse";
 
 interface IndexerConfigModalProps {
   opened: boolean;
