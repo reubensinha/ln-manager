@@ -15,7 +15,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
 
-import { toggleBookDownloaded } from "../api/api";
+import { toggleBookDownloaded, getPluginCapabilities } from "../api/api";
 import type { Book, IndexerResult } from "../api/ApiResponse";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
@@ -28,11 +28,22 @@ function BookInfo({ book }: { book: Book }) {
   const [isDownloaded, setIsDownloaded] = useState(book.downloaded);
   const [isLoading, setIsLoading] = useState(false);
   const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
+  const [hasIndexers, setHasIndexers] = useState(false);
+  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
 
   useEffect(() => {
     setIsDownloaded(book.downloaded);
   }, [book.downloaded]);
+
+  useEffect(() => {
+    const fetchCapabilities = async () => {
+      const capabilities = await getPluginCapabilities();
+      setHasIndexers(capabilities.has_indexers);
+      setHasDownloadClients(capabilities.has_download_clients);
+    };
+    fetchCapabilities();
+  }, []);
 
   const handleToggleDownloaded = async () => {
     setIsLoading(true);
@@ -207,21 +218,25 @@ function BookInfo({ book }: { book: Book }) {
               {isDownloaded ? "In Library" : "Add to Library"}
             </Button>
 
-            <Button
-              variant="default"
-              leftSection={<TbRobot size={18} />}
-              disabled
-            >
-              Automatic Search
-            </Button>
+            {hasIndexers && hasDownloadClients && (
+              <Button
+                variant="default"
+                leftSection={<TbRobot size={18} />}
+                disabled
+              >
+                Automatic Search
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              leftSection={<TbSearch size={18} />}
-              onClick={openSearchModal}
-            >
-              Interactive Search
-            </Button>
+            {hasIndexers && (
+              <Button
+                variant="outline"
+                leftSection={<TbSearch size={18} />}
+                onClick={openSearchModal}
+              >
+                Interactive Search
+              </Button>
+            )}
           </Group>
         </Stack>
       </Group>
@@ -242,12 +257,14 @@ function BookInfo({ book }: { book: Book }) {
       )}
 
       {/* Interactive Search Modal */}
-      <IndexerResultTable
-        opened={searchModalOpened}
-        onClose={closeSearchModal}
-        initialQuery={book.title}
-        onDownload={handleDownload}
-      />
+      {hasIndexers && (
+        <IndexerResultTable
+          opened={searchModalOpened}
+          onClose={closeSearchModal}
+          initialQuery={book.title}
+          onDownload={handleDownload}
+        />
+      )}
     </Stack>
   );
 }

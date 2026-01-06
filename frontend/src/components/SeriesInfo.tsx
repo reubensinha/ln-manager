@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Center,
@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
+import { getPluginCapabilities } from "../api/api";
 import type { SeriesSourceResponse, IndexerResult } from "../api/ApiResponse";
 import type { PublishingStatus } from "../types/MetadataFieldTypes";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
@@ -40,7 +41,18 @@ function getStatusColor(status?: PublishingStatus): string {
 function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
   const [showNsfw, setShowNsfw] = useState(false);
   const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
+  const [hasIndexers, setHasIndexers] = useState(false);
+  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && series.nsfw_img && !showNsfw;
+
+  useEffect(() => {
+    const fetchCapabilities = async () => {
+      const capabilities = await getPluginCapabilities();
+      setHasIndexers(capabilities.has_indexers);
+      setHasDownloadClients(capabilities.has_download_clients);
+    };
+    fetchCapabilities();
+  }, []);
 
   const handleDownload = (result: IndexerResult) => {
     // TODO: Implement download functionality
@@ -320,21 +332,25 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
 
           {/* Action Buttons */}
           <Group gap="sm">
-            <Button
-              variant="default"
-              leftSection={<TbRobot size={18} />}
-              disabled
-            >
-              Automatic Search
-            </Button>
+            {hasIndexers && hasDownloadClients && (
+              <Button
+                variant="default"
+                leftSection={<TbRobot size={18} />}
+                disabled
+              >
+                Automatic Search
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              leftSection={<TbSearch size={18} />}
-              onClick={openSearchModal}
-            >
-              Interactive Search
-            </Button>
+            {hasIndexers && (
+              <Button
+                variant="outline"
+                leftSection={<TbSearch size={18} />}
+                onClick={openSearchModal}
+              >
+                Interactive Search
+              </Button>
+            )}
           </Group>
         </Stack>
       </Group>
@@ -415,12 +431,14 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
       )}
 
       {/* Interactive Search Modal */}
-      <IndexerResultTable
-        opened={searchModalOpened}
-        onClose={closeSearchModal}
-        initialQuery={series.title}
-        onDownload={handleDownload}
-      />
+      {hasIndexers && (
+        <IndexerResultTable
+          opened={searchModalOpened}
+          onClose={closeSearchModal}
+          initialQuery={series.title}
+          onDownload={handleDownload}
+        />
+      )}
     </Stack>
   );
 }
