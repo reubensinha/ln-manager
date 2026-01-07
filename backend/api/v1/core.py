@@ -112,6 +112,7 @@ async def get_plugin_capabilities(*, session: Session = Depends(get_session)):
         "has_indexers": False,
         "has_download_clients": False,
         "has_metadata_sources": False,
+        "has_parsers": False,
     }
     
     for plugin in plugins:
@@ -139,6 +140,14 @@ async def get_plugin_capabilities(*, session: Session = Depends(get_session)):
                     sources = plugin_instance.get_available_sources()
                     if sources:
                         capabilities["has_metadata_sources"] = True
+                except (NotImplementedError, AttributeError):
+                    pass
+                
+                # Check for parser capability
+                try:
+                    parsers = plugin_instance.get_available_parsers()
+                    if parsers:
+                        capabilities["has_parsers"] = True
                 except (NotImplementedError, AttributeError):
                     pass
         except Exception:

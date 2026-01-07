@@ -78,6 +78,7 @@ class AutomatedPipe(GenericPlugin):
             plugins = session.exec(select(Plugin).where(Plugin.enabled == True)).all()
             
             has_indexer_plugin = False
+            has_parser_plugin = False
             has_download_client_plugin = False
             
             for plugin in plugins:
@@ -92,6 +93,14 @@ class AutomatedPipe(GenericPlugin):
                         except (NotImplementedError, AttributeError):
                             pass
                         
+                        # Check if plugin has parser capability
+                        try:
+                            parsers = plugin_instance.get_available_parsers()
+                            if parsers:
+                                has_parser_plugin = True
+                        except (NotImplementedError, AttributeError):
+                            pass
+                        
                         # Check if plugin has download client capability
                         try:
                             clients = plugin_instance.get_available_clients()
@@ -102,10 +111,12 @@ class AutomatedPipe(GenericPlugin):
                 except Exception:
                     pass
             
-            if not (has_indexer_plugin and has_download_client_plugin):
+            if not (has_indexer_plugin and has_parser_plugin and has_download_client_plugin):
                 missing = []
                 if not has_indexer_plugin:
                     missing.append("Indexer capability")
+                if not has_parser_plugin:
+                    missing.append("Parser capability")
                 if not has_download_client_plugin:
                     missing.append("Download Client capability")
                 print(

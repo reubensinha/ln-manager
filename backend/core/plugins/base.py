@@ -1,10 +1,14 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import os
+import logging
 
 ## TODO: Try Avoid using Any
 from typing import Any, Optional
 from fastapi import APIRouter
+
+from backend.core.logging_config import get_plugin_logger
+
 
 class BasePlugin(ABC):
     """Base interface for all plugins."""
@@ -18,6 +22,10 @@ class BasePlugin(ABC):
         # Allow plugins to receive config from DB or user settings
         for k, v in kwargs.items():
             setattr(self, k, v)
+        
+        # Set up plugin-specific logger
+        self.logger = get_plugin_logger(self.name)
+        self.logger.info(f"Initializing plugin: {self.name} v{self.version}")
         
         # Set up plugin data directory
         self._setup_data_directory()
@@ -49,6 +57,7 @@ class BasePlugin(ABC):
         
         # Make it available to the plugin
         self.data_dir = data_dir
+        self.logger.debug(f"Plugin data directory: {data_dir}")
 
     @abstractmethod
     def start(self) -> None:
@@ -96,6 +105,14 @@ class BasePlugin(ABC):
         
         Returns:
             List of client definitions with name, description, and config schema
+        """
+        return []
+    
+    def get_available_parsers(self) -> list[dict[str, Any]]:
+        """Return parsers this plugin can provide.
+        
+        Returns:
+            List of parser definitions with name, description, and config schema
         """
         return []
     
@@ -155,6 +172,17 @@ class BasePlugin(ABC):
             Configured download client object (should inherit from DownloadClientPlugin interface)
         """
         raise NotImplementedError(f"{self.name} does not provide download clients")
+    
+    def create_parser(self, config: dict[str, Any]):
+        """Factory method to create a configured parser instance.
+        
+        Args:
+            config: Configuration dictionary for this parser
+            
+        Returns:
+            Configured parser object (should inherit from ParserPlugin interface)
+        """
+        raise NotImplementedError(f"{self.name} does not provide parsers")
     
     def get_scheduler_jobs(self) -> list[dict[str, Any]]:
         """Return scheduled jobs this plugin wants to register.

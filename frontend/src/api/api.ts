@@ -17,6 +17,7 @@ import type {
   RestoreResponse,
   Indexer,
   DownloadClient,
+  Parser,
   IndexerResult,
 } from "./ApiResponse";
 
@@ -386,6 +387,75 @@ export async function testIndexerConnection(
   } catch (error) {
     console.error("Error testing indexer connection:", error);
     return { success: false, message: "Failed to test connection" };
+  }
+}
+
+export async function getPluginParsers(pluginName: string): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/parsers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin parsers:", error);
+    return [];
+  }
+}
+
+export async function getParsers(): Promise<Parser[]> {
+  try {
+    const response = await api.get(`/parsers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching parsers:", error);
+    return [];
+  }
+}
+
+export async function createParser(
+  parser: Omit<Parser, "id">
+): Promise<{ success: boolean; parser?: Parser; message?: string }> {
+  try {
+    const response = await api.post(`/parsers`, parser);
+    return { success: true, parser: response.data };
+  } catch (error) {
+    console.error("Error creating parser:", error);
+    return { success: false, message: "Failed to create parser" };
+  }
+}
+
+export async function updateParser(
+  parserId: string,
+  parser: Partial<Omit<Parser, "id">>
+): Promise<{ success: boolean; parser?: Parser; message?: string }> {
+  try {
+    const response = await api.patch(`/parsers/${parserId}`, parser);
+    return { success: true, parser: response.data };
+  } catch (error) {
+    console.error("Error updating parser:", error);
+    return { success: false, message: "Failed to update parser" };
+  }
+}
+
+export async function deleteParser(
+  parserId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/parsers/${parserId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting parser:", error);
+    return { success: false, message: "Failed to delete parser" };
+  }
+}
+
+export async function toggleParser(
+  parserId: string
+): Promise<Parser | null> {
+  try {
+    const response = await api.patch(`/parsers/${parserId}/toggle`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling parser:", error);
+    return null;
   }
 }
 

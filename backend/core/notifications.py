@@ -1,3 +1,4 @@
+import logging
 from fastapi import WebSocket
 from sqlmodel import Session
 
@@ -7,21 +8,29 @@ from backend.core.database.models import (
     NotificationType,
     Notification,
 )
+from backend.core.logging_config import get_logger
+
+
+logger = get_logger(__name__)
 
 
 class NotificationManager:
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
+        logger.debug("NotificationManager initialized")
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket) -> None:
         self.active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, notification: NotificationMessage) -> None:
-        print(f"Broadcasting notification: {notification.message}")
+        logger.info(f"Broadcasting notification [{notification.type}]: {notification.message}")
+        
         with Session(engine) as session:
             notif = Notification(
                 message=notification.message,
@@ -37,7 +46,7 @@ class NotificationManager:
                     {"event": "notification", "payload": notification.model_dump_json()}
                 )
             except Exception as e:
-                print(f"Error sending message to {connection}: {e}")
+                logger.error(f"Error sending notification to WebSocket: {e}", exc_info=True)
 
 
 notification_manager = NotificationManager()

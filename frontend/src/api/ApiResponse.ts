@@ -255,6 +255,18 @@ export type DownloadClient = {
   plugin?: PluginResponse;
 }
 
+export type Parser = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}
+
 export type IndexerResult = {
   title: string;
   link?: string;

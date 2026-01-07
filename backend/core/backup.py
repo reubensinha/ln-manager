@@ -1,5 +1,6 @@
 import json
 import zipfile
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,10 @@ from .database.models import (
     Plugin,
     Notification,
 )
+from .logging_config import get_logger
+
+
+logger = get_logger(__name__)
 
 BACKUP_VERSION = "1.0"
 
@@ -70,6 +75,8 @@ def backup_database(
         if progress_callback:
             progress_callback(progress, message)
     
+    logger.info(f"Starting database backup to: {backup_path if backup_path else 'auto-generated path'}")
+    
     if backup_path is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = db_dir / f"backup_{timestamp}.zip"
@@ -80,6 +87,7 @@ def backup_database(
 
     try:
         report_progress(5, "Initializing backup...")
+        logger.debug("Creating backup ZIP file...")
         
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Add metadata
@@ -151,12 +159,15 @@ def backup_database(
                     zipf.write(file_path, arcname)
 
         report_progress(100, "Backup completed successfully")
+        logger.info(f"Backup created successfully: {backup_path}")
         return backup_path
 
     except Exception as e:
+        logger.error(f"Backup creation failed: {e}", exc_info=True)
         # Clean up partial backup on failure
         if backup_path.exists():
             backup_path.unlink()
+            logger.debug(f"Cleaned up partial backup file: {backup_path}")
         raise Exception(f"Backup creation failed: {str(e)}") from e
 
 
@@ -187,8 +198,12 @@ def restore_database(
         if progress_callback:
             progress_callback(progress, message)
     
+    logger.info(f"Starting database restoration from: {backup_file}")
+    logger.info(f"Overwrite mode: {overwrite}")
+    
     backup_file = Path(backup_file)
     if not backup_file.exists():
+        logger.error(f"Backup file not found: {backup_file}")
         raise FileNotFoundError(f"Backup file not found: {backup_file}")
 
     summary = {
