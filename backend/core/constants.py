@@ -1,10 +1,12 @@
 from pathlib import Path
 
-STATIC_DIR = Path(__file__).parent / "static"
-
 # Directory inside Docker container for persistent config and plugin data
 # __file__ is in backend/core/constants.py, so parent.parent gets us to backend/
 BACKEND_DIR = Path(__file__).parent.parent
+
+# Static files directory (frontend build output)
+# Points to frontend/dist which is where Vite builds to
+STATIC_DIR = BACKEND_DIR.parent / "frontend" / "dist"
 MOUNT_DIR = BACKEND_DIR / "config"
 
 # Bundled plugins (part of the image)
