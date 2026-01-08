@@ -1,9 +1,12 @@
 """API endpoints for plugin discovery and capabilities."""
 
 from typing import Dict, List, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, UploadFile
+from sqlmodel import Session
 
 from backend.plugin_manager import plugin_manager
+from backend.core.database.database import get_session
+from backend.api.v1.utils import _install_plugin_util
 
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -111,4 +114,18 @@ async def get_available_parsers(plugin_name: str) -> List[Dict[str, Any]]:
         return parsers
     except NotImplementedError:
         return []
+
+
+@router.post("/install")
+async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)) -> Dict[str, str]:
+    """Install a plugin from an uploaded .lna file.
+    
+    Args:
+        file: The .lna plugin archive file
+        session: Database session
+        
+    Returns:
+        Dictionary with success message and plugin details
+    """
+    return await _install_plugin_util(file, session)
 
