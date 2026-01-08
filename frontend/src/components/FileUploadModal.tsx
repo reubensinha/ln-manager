@@ -42,7 +42,12 @@ function FileUploadModal({
   onSubmit,
   title,
   initialFile = null,
-  acceptedFileTypes = [MIME_TYPES.zip],
+  acceptedFileTypes = [
+    MIME_TYPES.zip,
+    "application/x-zip-compressed",
+    "application/x-compressed",
+    ".zip",
+  ],
   maxSize = 500 * 1024 * 1024, // 500 MB default
   uploadPrompt = "Drag file here or click to select",
   uploadDescription = "Upload a file",
