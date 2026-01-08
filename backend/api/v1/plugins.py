@@ -117,15 +117,15 @@ async def get_available_parsers(plugin_name: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/install")
-async def install_plugin(*, file: UploadFile, session: Session = Depends(get_session)) -> Dict[str, str]:
+async def install_plugin(*, plugin: UploadFile, session: Session = Depends(get_session)) -> Dict[str, str]:
     """Install a plugin from an uploaded .lna file.
     
     Args:
-        file: The .lna plugin archive file
+        plugin: The .lna plugin archive file
         session: Database session
         
     Returns:
         Dictionary with success message and plugin details
     """
-    return await _install_plugin_util(file, session)
+    return await _install_plugin_util(plugin, session)
 
