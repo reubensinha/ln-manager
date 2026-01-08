@@ -51,7 +51,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata, system, plugins, indexers, parsers
+from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients
 
 # Initialize logging at the very start
 setup_logging(
@@ -486,6 +486,7 @@ app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
 app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
 app.include_router(parsers.router, prefix="/api/v1", tags=["parsers"])
+app.include_router(download_clients.router, prefix="/api/v1", tags=["download_clients"])
 
 # Include plugin-registered API routers
 for plugin_name, router in plugin_manager.get_plugin_routers().items():

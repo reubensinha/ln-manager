@@ -15,7 +15,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
 
-import { toggleBookDownloaded, getPluginCapabilities } from "../api/api";
+import { toggleBookDownloaded, getPluginCapabilities, downloadRelease } from "../api/api";
 import type { Book, IndexerResult } from "../api/ApiResponse";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
@@ -57,9 +57,19 @@ function BookInfo({ book }: { book: Book }) {
     }
   };
 
-  const handleDownload = (result: IndexerResult) => {
-    // TODO: Implement download functionality
-    console.log("Download requested for:", result);
+  const handleDownload = async (result: IndexerResult) => {
+    // Send both download_url and magnet link if available
+    // Let the backend/plugin decide which one to use
+    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
+    
+    const response = await downloadRelease(result.download_url, magnetLink);
+    if (response.success) {
+      console.log("Download started:", result.title);
+      // TODO: Show success notification
+    } else {
+      console.error("Download failed:", response.message);
+      // TODO: Show error notification
+    }
   };
 
   return (

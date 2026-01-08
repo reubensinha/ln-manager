@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
-import { getPluginCapabilities } from "../api/api";
+import { getPluginCapabilities, downloadRelease } from "../api/api";
 import type { SeriesSourceResponse, IndexerResult } from "../api/ApiResponse";
 import type { PublishingStatus } from "../types/MetadataFieldTypes";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
@@ -54,9 +54,19 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
     fetchCapabilities();
   }, []);
 
-  const handleDownload = (result: IndexerResult) => {
-    // TODO: Implement download functionality
-    console.log("Download requested for:", result);
+  const handleDownload = async (result: IndexerResult) => {
+    // Send both download_url and magnet link if available
+    // Let the backend/plugin decide which one to use
+    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
+    
+    const response = await downloadRelease(result.download_url, magnetLink);
+    if (response.success) {
+      console.log("Download started:", result.title);
+      // TODO: Show success notification
+    } else {
+      console.error("Download failed:", response.message);
+      // TODO: Show error notification
+    }
   };
 
   return (

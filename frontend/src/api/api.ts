@@ -320,7 +320,29 @@ export async function getPluginIndexers(pluginName: string): Promise<PluginCapab
     return [];
   }
 }
-
+export async function downloadRelease(
+  downloadUrl?: string,
+  magnet?: string,
+  downloadClientId?: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await api.post(`/download`, null, {
+      params: {
+        download_url: downloadUrl,
+        magnet: magnet,
+        download_client_id: downloadClientId,
+      },
+    });
+    return { success: true, message: response.data.message };
+  } catch (error: unknown) {
+    console.error("Error downloading release:", error);
+    const axiosError = error as { response?: { data?: { detail?: string } } };
+    return { 
+      success: false, 
+      message: axiosError.response?.data?.detail || "Failed to download release" 
+    };
+  }
+}
 export async function getPluginClients(pluginName: string): Promise<PluginCapability[]> {
   try {
     const response = await api.get(`/plugins/${pluginName}/clients`);
