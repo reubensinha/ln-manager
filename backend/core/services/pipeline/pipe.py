@@ -14,7 +14,14 @@ class Pipe:
 
     def __init__(self, stages: list[Stage] | None = None):
         self.stages: list[Stage] = stages if stages is not None else []
+    
+    def __str__(self) -> str:
+        # TODO: Improve print representation
+        stage_names = [stage.name for stage in self.stages]
+        return f"Pipe(stages={stage_names})"
 
+    # TODO: Add method to return Pipleline as dict(?) for serialization
+    
     def add_stage(self, stage: Stage):
         """Add stage to end of pipeline."""
         self.stages.append(stage)

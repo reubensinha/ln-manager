@@ -12,12 +12,12 @@ from backend.core.database.models import (
     SeriesDetailsResponse,
     SeriesSearchResponse,
 )
+from backend.core.plugins.base import BasePlugin
 from backend.core.plugins.metadata import (
     BookFetchModel,
     MetadataPlugin,
     SeriesFetchModel,
 )
-from backend.core.plugins.base import BasePlugin
 from .ranobedb_api import IMAGE_BASE_URL, download_image, get_series, get_series_by_id, get_book_by_id
 from . import rate_limiter
 

@@ -90,3 +90,25 @@ async def get_available_clients(plugin_name: str) -> List[Dict[str, Any]]:
         return clients
     except NotImplementedError:
         return []
+
+
+@router.get("/{plugin_name}/parsers")
+async def get_available_parsers(plugin_name: str) -> List[Dict[str, Any]]:
+    """Get available parsers from a plugin.
+    
+    Args:
+        plugin_name: Name of the plugin
+        
+    Returns:
+        List of available parser configurations
+    """
+    plugin = plugin_manager.get_plugin(plugin_name)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' not found")
+    
+    try:
+        parsers = plugin.get_available_parsers()
+        return parsers
+    except NotImplementedError:
+        return []
+

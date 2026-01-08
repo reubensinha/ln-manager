@@ -83,7 +83,6 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
             "version",
             "author",
             "description",
-            "type",
             "entry_point",
         ]
         missing_fields = [field for field in required_fields if field not in manifest]
@@ -91,13 +90,6 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
             raise HTTPException(
                 status_code=400,
                 detail=f"Manifest missing required fields: {', '.join(missing_fields)}",
-            )
-
-        valid_types = ["metadata", "indexer", "download client", "generic"]
-        if manifest["type"] not in valid_types:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid plugin type. Must be one of: {', '.join(valid_types)}",
             )
 
         plugin_name = manifest["name"]
@@ -118,7 +110,7 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
             )
 
         backend_src = plugin_root / "backend"
-        if not backend_src.exists() or not backend_src.is_dir():
+        if backend_src.exists() and backend_src.is_dir():
             try:
                 shutil.copytree(backend_src, plugin_backend_dest)
                 shutil.copy2(manifest_path, plugin_backend_dest / "manifest.yaml")

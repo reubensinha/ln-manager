@@ -13,22 +13,37 @@ import {
   Button,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { TbEyeOff } from "react-icons/tb";
+import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
 
-import { toggleBookDownloaded } from "../api/api";
-import type { Book } from "../api/ApiResponse";
+import { toggleBookDownloaded, getPluginCapabilities, downloadRelease } from "../api/api";
+import type { Book, IndexerResult } from "../api/ApiResponse";
+import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
+
+// TODO: Make this look better for mobile
 const BLUR_NSFW: boolean = true;
 
 function BookInfo({ book }: { book: Book }) {
   const [showNsfw, { open: openNsfw }] = useDisclosure(false);
   const [isDownloaded, setIsDownloaded] = useState(book.downloaded);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
+  const [hasIndexers, setHasIndexers] = useState(false);
+  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
 
   useEffect(() => {
     setIsDownloaded(book.downloaded);
   }, [book.downloaded]);
+
+  useEffect(() => {
+    const fetchCapabilities = async () => {
+      const capabilities = await getPluginCapabilities();
+      setHasIndexers(capabilities.has_indexers);
+      setHasDownloadClients(capabilities.has_download_clients);
+    };
+    fetchCapabilities();
+  }, []);
 
   const handleToggleDownloaded = async () => {
     setIsLoading(true);
@@ -39,6 +54,21 @@ function BookInfo({ book }: { book: Book }) {
       console.error("Error toggling download:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDownload = async (result: IndexerResult) => {
+    // Send both download_url and magnet link if available
+    // Let the backend/plugin decide which one to use
+    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
+    
+    const response = await downloadRelease(result.download_url, magnetLink);
+    if (response.success) {
+      console.log("Download started:", result.title);
+      // TODO: Show success notification
+    } else {
+      console.error("Download failed:", response.message);
+      // TODO: Show error notification
     }
   };
 
@@ -189,13 +219,35 @@ function BookInfo({ book }: { book: Book }) {
             </Stack>
           )}
 
-          <Button
-            onClick={handleToggleDownloaded}
-            loading={isLoading}
-            variant={isDownloaded ? "light" : "filled"}
-          >
-            {isDownloaded ? "In Library" : "Add to Library"}
-          </Button>
+          <Group gap="sm">
+            <Button
+              onClick={handleToggleDownloaded}
+              loading={isLoading}
+              variant={isDownloaded ? "light" : "filled"}
+            >
+              {isDownloaded ? "In Library" : "Add to Library"}
+            </Button>
+
+            {hasIndexers && hasDownloadClients && (
+              <Button
+                variant="default"
+                leftSection={<TbRobot size={18} />}
+                disabled
+              >
+                Automatic Search
+              </Button>
+            )}
+
+            {hasIndexers && (
+              <Button
+                variant="outline"
+                leftSection={<TbSearch size={18} />}
+                onClick={openSearchModal}
+              >
+                Interactive Search
+              </Button>
+            )}
+          </Group>
         </Stack>
       </Group>
 
@@ -212,6 +264,16 @@ function BookInfo({ book }: { book: Book }) {
             </Text>
           </Box>
         </>
+      )}
+
+      {/* Interactive Search Modal */}
+      {hasIndexers && (
+        <IndexerResultTable
+          opened={searchModalOpened}
+          onClose={closeSearchModal}
+          initialQuery={book.title}
+          onDownload={handleDownload}
+        />
       )}
     </Stack>
   );

@@ -253,3 +253,5 @@ docker-push.sh
 
 backup_cli.py
 test_backup.py
+backend/run_dev.sh
+plugin_toolkit

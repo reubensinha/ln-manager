@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import asyncio
+import logging
 from pathlib import Path
 
 from fastapi import (
@@ -31,26 +32,34 @@ from backend.core.database.models import (
     MetadataSource,
     Indexer,
     DownloadClient,
+    Parser,
 )
 from backend.core.notifications import notification_manager
-from backend.plugin_manager import PluginManager, PLUGIN_DIRS, plugin_manager
+from backend.plugin_manager import PluginManager, plugin_manager
+from backend.core.constants import PLUGIN_DIRS, STATIC_DIR
 from backend.core.exceptions import (
     ResourceNotFoundError,
     InvalidStateError,
     ValidationError,
 )
+from backend.core.logging_config import setup_logging, get_logger
 
 from backend.core.scheduler import (
     UPDATE_SERIES_INTERVAL_MINUTES,
     check_release_day,
     update_all_series_metadata,
-    run_automated_pipeline,
 )
 
 
-from .api.v1 import core, metadata, system, plugins
+from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients
 
-STATIC_DIR = Path(__file__).parent / "static"
+# Initialize logging at the very start
+setup_logging(
+    log_level=logging.INFO,
+    enable_console=True
+)
+logger = get_logger(__name__)
+
 
 
 scheduler = AsyncIOScheduler()
@@ -65,14 +74,18 @@ scheduler.add_job(check_release_day, "cron", hour=0, minute=0)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Perform startup tasks
+    logger.info("Application starting up...")
     init_db()
 
     with Session(engine) as session:
+        logger.info("Scanning plugin directories for manifests...")
         # Scan all plugin directories for manifests
         for plugin_dir in PLUGIN_DIRS:
             if not plugin_dir.exists():
+                logger.warning(f"Plugin directory does not exist: {plugin_dir}")
                 continue
 
+            logger.debug(f"Scanning plugin directory: {plugin_dir}")
             for folder in plugin_dir.iterdir():
                 if not folder.is_dir():
                     continue
@@ -87,6 +100,8 @@ async def lifespan(app: FastAPI):
                 author = manifest.get("author", "")
                 ptype = manifest.get("type")
 
+                logger.debug(f"Found plugin manifest: {name} v{version}")
+
                 db_plugin = session.exec(
                     select(Plugin).where(Plugin.name == name)
                 ).first()
@@ -100,31 +115,43 @@ async def lifespan(app: FastAPI):
                         enabled=True,
                     )
                     session.add(db_plugin)
+                    logger.info(f"Added new plugin to database: {name} v{version}")
                 else:
                     db_plugin.version = version
                     db_plugin.description = description
                     db_plugin.author = author
+                    logger.debug(f"Updated existing plugin: {name} v{version}")
 
         session.commit()
 
         # Ensure PluginBase table exists
+        logger.info("Loading enabled plugins...")
         enabled_plugins = list(
             session.exec(select(Plugin).where(Plugin.enabled == True)).all()
         )
+        logger.info(f"Found {len(enabled_plugins)} enabled plugins")
 
         for plugin in enabled_plugins:
             # Try to find the plugin in any of the plugin directories
+            logger.debug(f"Searching for plugin manifest: {plugin.name}")
             manifest_file = None
             for plugin_dir in PLUGIN_DIRS:
                 candidate = plugin_dir / plugin.name / "manifest.yaml"
+                logger.debug(f"Checking: {candidate}")
                 if candidate.exists():
                     manifest_file = candidate
+                    logger.debug(f"Found manifest at: {manifest_file}")
                     break
 
             ## TODO: Add unavailable field to source/indexer/client, and set/unset based on whether it exists.
             if manifest_file and manifest_file.exists():
+                logger.info(f"Loading plugin: {plugin.name}")
                 manifest = yaml.safe_load(manifest_file.open())
-                plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                try:
+                    plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                except Exception as e:
+                    logger.error(f"Failed to load plugin '{plugin.name}': {e}", exc_info=True)
+                    continue
                 
                 # Register plugin's metadata sources in database
                 try:
@@ -140,7 +167,7 @@ async def lifespan(app: FastAPI):
                     for existing in existing_sources:
                         if existing.name not in advertised_names:
                             existing.enabled = False
-                            print(f"Disabled metadata source '{existing.name}' (no longer advertised by {plugin.name})")
+                            logger.info(f"Disabled metadata source '{existing.name}' (no longer advertised by {plugin.name})")
                     
                     # Add new advertised sources (don't auto re-enable disabled ones)
                     for source_info in available_sources:
@@ -162,28 +189,37 @@ async def lifespan(app: FastAPI):
                                 plugin_id=plugin.id
                             )
                             session.add(metadata_source)
-                            print(f"Registered new metadata source '{source_info['name']}' from {plugin.name}")
+                            logger.info(f"Registered new metadata source '{source_info['name']}' from {plugin.name}")
                 except NotImplementedError:
                     pass  # Plugin doesn't support metadata sources
                 
                 # Register plugin's indexers in database
                 try:
                     available_indexers = plugin_instance.get_available_indexers()
-                    advertised_names = {i["name"] for i in available_indexers}
+                    
+                    # Only auto-register indexers that are NOT user-configurable
+                    auto_register_indexers = [
+                        i for i in available_indexers 
+                        if not i.get("user_configurable", False)
+                    ]
+                    advertised_names = {i["name"] for i in auto_register_indexers}
                     
                     # Get all existing indexers for this plugin
                     existing_indexers = session.exec(
                         select(Indexer).where(Indexer.plugin_id == plugin.id)
                     ).all()
                     
-                    # Disable indexers that are no longer advertised
+                    # Only disable auto-registered indexers that are no longer advertised
+                    # Don't touch user-configured indexers (those with custom names/configs)
                     for existing in existing_indexers:
-                        if existing.name not in advertised_names:
+                        # Check if this looks like an auto-registered indexer
+                        # Auto-registered indexers have empty config dicts
+                        if (existing.config is None or existing.config == {}) and existing.name not in advertised_names:
                             existing.enabled = False
-                            print(f"Disabled indexer '{existing.name}' (no longer advertised by {plugin.name})")
+                            logger.info(f"Disabled indexer '{existing.name}' (no longer advertised by {plugin.name})")
                     
                     # Add new advertised indexers (don't auto re-enable disabled ones)
-                    for indexer_info in available_indexers:
+                    for indexer_info in auto_register_indexers:
                         existing = session.exec(
                             select(Indexer)
                             .where(Indexer.name == indexer_info["name"])
@@ -201,28 +237,38 @@ async def lifespan(app: FastAPI):
                                 plugin_id=plugin.id
                             )
                             session.add(indexer)
-                            print(f"Registered new indexer '{indexer_info['name']}' from {plugin.name}")
+                            logger.info(f"Registered new indexer '{indexer_info['name']}' from {plugin.name}")
                 except NotImplementedError:
                     pass  # Plugin doesn't support indexers
                 
                 # Register plugin's download clients in database
                 try:
                     available_clients = plugin_instance.get_available_clients()
-                    advertised_names = {c["name"] for c in available_clients}
+                    
+                    # Only auto-register download clients that are NOT user-configurable
+                    # User-configurable clients (like qBittorrent) should only be added via UI
+                    auto_register_clients = [
+                        c for c in available_clients 
+                        if not c.get("user_configurable", False)
+                    ]
+                    advertised_names = {c["name"] for c in auto_register_clients}
                     
                     # Get all existing clients for this plugin
                     existing_clients = session.exec(
                         select(DownloadClient).where(DownloadClient.plugin_id == plugin.id)
                     ).all()
                     
-                    # Disable clients that are no longer advertised
+                    # Only disable auto-registered clients that are no longer advertised
+                    # Don't touch user-configured clients (those with custom names/configs)
                     for existing in existing_clients:
-                        if existing.name not in advertised_names:
+                        # Check if this looks like an auto-registered client
+                        # Auto-registered clients have empty config dicts
+                        if (existing.config is None or existing.config == {}) and existing.name not in advertised_names:
                             existing.enabled = False
-                            print(f"Disabled download client '{existing.name}' (no longer advertised by {plugin.name})")
+                            logger.info(f"Disabled download client '{existing.name}' (no longer advertised by {plugin.name})")
                     
                     # Add new advertised clients (don't auto re-enable disabled ones)
-                    for client_info in available_clients:
+                    for client_info in auto_register_clients:
                         existing = session.exec(
                             select(DownloadClient)
                             .where(DownloadClient.name == client_info["name"])
@@ -240,47 +286,78 @@ async def lifespan(app: FastAPI):
                                 plugin_id=plugin.id
                             )
                             session.add(download_client)
-                            print(f"Registered new download client '{client_info['name']}' from {plugin.name}")
+                            logger.info(f"Registered new download client '{client_info['name']}' from {plugin.name}")
                 except NotImplementedError:
                     pass  # Plugin doesn't support download clients
+                
+                # Register plugin's parsers in database
+                try:
+                    available_parsers = plugin_instance.get_available_parsers()
+                    advertised_names = {p["name"] for p in available_parsers}
+                    
+                    # Get all existing parsers for this plugin
+                    existing_parsers = session.exec(
+                        select(Parser).where(Parser.plugin_id == plugin.id)
+                    ).all()
+                    
+                    # Disable parsers that are no longer advertised
+                    for existing in existing_parsers:
+                        if existing.name not in advertised_names:
+                            existing.enabled = False
+                            logger.info(f"Disabled parser '{existing.name}' (no longer advertised by {plugin.name})")
+                    
+                    # Add new advertised parsers (don't auto re-enable disabled ones)
+                    for parser_info in available_parsers:
+                        existing = session.exec(
+                            select(Parser)
+                            .where(Parser.name == parser_info["name"])
+                            .where(Parser.plugin_id == plugin.id)
+                        ).first()
+                        
+                        if not existing:
+                            parser = Parser(
+                                name=parser_info["name"],
+                                version=plugin.version,
+                                author=plugin.author,
+                                description=parser_info.get("description"),
+                                config={},
+                                enabled=True,
+                                plugin_id=plugin.id
+                            )
+                            session.add(parser)
+                            logger.info(f"Registered new parser '{parser_info['name']}' from {plugin.name}")
+                except NotImplementedError:
+                    pass  # Plugin doesn't support parsers
+            else:
+                logger.warning(f"Manifest not found for enabled plugin: {plugin.name}")
         
         session.commit()
 
-        # Check if there are any enabled indexers and download clients configured
-        has_indexer = (
-            session.exec(select(Indexer).where(Indexer.enabled == True)).first()
-            is not None
-        )
-        has_download_client = (
-            session.exec(
-                select(DownloadClient).where(DownloadClient.enabled == True)
-            ).first()
-            is not None
-        )
+        logger.info("Registering scheduled jobs from plugins...")
+        # Register scheduled jobs from all enabled plugins
+        # Plugins decide their own scheduling logic and requirements
+        for plugin_name, plugin_instance in plugin_manager.plugins.items():
+            try:
+                jobs = plugin_instance.get_scheduler_jobs()
+                
+                for job_config in jobs:
+                    scheduler.add_job(**job_config)
+                    logger.info(f"Scheduled job '{job_config.get('id', 'unnamed')}' from {plugin_name} plugin")
+                        
+            except Exception as e:
+                logger.error(f"Error registering scheduled jobs for {plugin_name}: {e}", exc_info=True)
 
-        if has_indexer and has_download_client:
-            scheduler.add_job(
-                run_automated_pipeline,
-                "interval",
-                minutes=15,
-            )
-            print(
-                "Automated pipeline job scheduled (Indexer and Download Client plugins found)"
-            )
-        else:
-            missing = []
-            if not has_indexer:
-                missing.append("Indexer")
-            if not has_download_client:
-                missing.append("Download Client")
-            print(
-                f"Automated pipeline job NOT scheduled - missing enabled plugins: {', '.join(missing)}"
-            )
-
+    logger.info("Starting scheduler...")
     scheduler.start()
+    logger.info("Application startup complete")
+    
     yield
+    
     # Perform shutdown tasks
+    logger.info("Application shutting down...")
     scheduler.shutdown()
+    logger.info("Scheduler stopped")
+    logger.info("Application shutdown complete")
 
 
 app = FastAPI(
@@ -407,6 +484,17 @@ app.include_router(core.router, prefix="/api/v1", tags=["core"])
 app.include_router(metadata.router, prefix="/api/v1", tags=["metadata"])
 app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
+app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
+app.include_router(parsers.router, prefix="/api/v1", tags=["parsers"])
+app.include_router(download_clients.router, prefix="/api/v1", tags=["download_clients"])
+
+# Include plugin-registered API routers
+for plugin_name, router in plugin_manager.get_plugin_routers().items():
+    app.include_router(
+        router,
+        prefix=f"/api/v1/plugins/{plugin_name}",
+        tags=[f"plugin:{plugin_name}"]
+    )
 
 
 @app.get("/", include_in_schema=False)

@@ -1,3 +1,5 @@
+from operator import call
+from uuid import UUID
 from fastapi import Depends
 from sqlmodel import Session, select
 from backend.core.database.database import get_session, engine
@@ -34,6 +36,10 @@ async def get_feed(indexer_id, session: Session = Depends(get_session)):
         indexer_id: UUID of the Indexer
         session: Database session
     """
+    # Convert string UUID to UUID object if needed
+    if isinstance(indexer_id, str):
+        indexer_id = UUID(indexer_id)
+    
     indexer = session.get(Indexer, indexer_id)
         
     if not indexer or not indexer.enabled:
@@ -54,7 +60,22 @@ async def get_feed(indexer_id, session: Session = Depends(get_session)):
         if not isinstance(indexer_instance, IndexerPlugin):
             return None
         
-        return await indexer_instance.get_feed()
+        results = await indexer_instance.get_feed()
+        
+        # Add indexer name to each result
+        if results:
+            for result in results:
+                result['indexer_name'] = indexer.name
+                
+                # TODO: Move score and rejections addition to API call layer.
+                # Add default score if not present
+                if 'score' not in result:
+                    result['score'] = 0
+                # Add empty rejections list if not present
+                if 'rejections' not in result:
+                    result['rejections'] = []
+        
+        return results
     finally:
         # Clean up if indexer has cleanup method
         if indexer_instance and hasattr(indexer_instance, 'stop'):
@@ -91,9 +112,16 @@ async def search_indexer(indexer_id, query, session: Session = Depends(get_sessi
         query: Search query
         session: Database session
     """
+    # Convert string UUID to UUID object if needed
+    if isinstance(indexer_id, str):
+        indexer_id = UUID(indexer_id)
+    
     indexer = session.get(Indexer, indexer_id)
+    
+    if not indexer:
+        return None
         
-    if not indexer or not indexer.enabled:
+    if not indexer.enabled:
         return None
     
     if not indexer.plugin:
@@ -111,7 +139,22 @@ async def search_indexer(indexer_id, query, session: Session = Depends(get_sessi
         if not isinstance(indexer_instance, IndexerPlugin):
             return None
         
-        return await indexer_instance.search(query)
+        results = await indexer_instance.search(query)
+        
+        # Add indexer name to each result
+        if results:
+            for result in results:
+                result['indexer_name'] = indexer.name
+                # Add default score if not present
+                
+                # TODO: Move score and rejections addition to API call layer.
+                if 'score' not in result:
+                    result['score'] = 0
+                # Add empty rejections list if not present
+                if 'rejections' not in result:
+                    result['rejections'] = []
+        
+        return results
     finally:
         # Clean up if indexer has cleanup method
         if indexer_instance and hasattr(indexer_instance, 'stop'):

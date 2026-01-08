@@ -5,14 +5,11 @@ import {
   Divider,
   Group,
   Stack,
-  Modal,
   ActionIcon,
   Progress,
   Badge,
   Alert,
-  Checkbox,
 } from "@mantine/core";
-import { Dropzone, MIME_TYPES } from "@mantine/dropzone";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
 import {
@@ -20,10 +17,10 @@ import {
   TbDownload,
   TbUpload,
   TbDatabase,
-  TbAlertCircle,
   TbX,
   TbCheck,
 } from "react-icons/tb";
+import FileUploadModal from "../../components/FileUploadModal";
 
 import {
   createBackupAsync,
@@ -42,8 +39,7 @@ function Status() {
   const [restoreModalOpened, setRestoreModalOpened] = useState(false);
   const [taskProgress, setTaskProgress] = useState<TaskProgress | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [overwrite, setOverwrite] = useState(false);
+  const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchBackups();
@@ -196,36 +192,32 @@ function Status() {
     }
   };
 
-  const handleRestoreFromTable = (backup: BackupInfo) => {
-    // Convert backup to file for restore
-    downloadBackup(backup.filename)
-      .then((blob) => {
-        if (blob) {
-          const file = new File([blob], backup.filename, { type: "application/zip" });
-          setSelectedFile(file);
-          setRestoreModalOpened(true);
-        } else {
-          notifications.show({
-            title: "Error",
-            message: "Failed to download backup for restore",
-            color: "red",
-          });
-        }
-      })
-      .catch((error) => {
+  const handleRestoreFromTable = async (backup: BackupInfo) => {
+    try {
+      const blob = await downloadBackup(backup.filename);
+      if (blob) {
+        const file = new File([blob], backup.filename, { type: "application/zip" });
+        setSelectedBackupFile(file);
+        setRestoreModalOpened(true);
+      } else {
         notifications.show({
           title: "Error",
-          message: `Failed to download backup for restore: ${error}`,
+          message: "Failed to download backup for restore",
           color: "red",
         });
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: `Failed to download backup for restore: ${error}`,
+        color: "red",
       });
+    }
   };
 
-  const handleRestoreSubmit = async () => {
-    if (!selectedFile) return;
-
+  const handleRestoreSubmit = async (file: File) => {
     try {
-      const response = await restoreBackupAsync(selectedFile, overwrite);
+      const response = await restoreBackupAsync(file, true);
       if (response.success) {
         setCurrentTaskId(response.task_id);
         setTaskProgress({
@@ -237,9 +229,6 @@ function Status() {
           result: null,
           error: null,
         });
-        setRestoreModalOpened(false);
-        setSelectedFile(null);
-        setOverwrite(false);
       } else {
         notifications.show({
           title: "Error",
@@ -294,11 +283,7 @@ function Status() {
             <Button
               leftSection={<TbUpload size={16} />}
               variant="light"
-              onClick={() => {
-                setSelectedFile(null);
-                setOverwrite(false);
-                setRestoreModalOpened(true);
-              }}
+              onClick={() => setRestoreModalOpened(true)}
               disabled={!!currentTaskId}
             >
               Restore from File
@@ -414,112 +399,24 @@ function Status() {
         />
       </Stack>
 
-      <Modal
+      <FileUploadModal
         opened={restoreModalOpened}
         onClose={() => {
           setRestoreModalOpened(false);
-          setSelectedFile(null);
-          setOverwrite(false);
+          setSelectedBackupFile(null);
         }}
+        onSubmit={handleRestoreSubmit}
         title="Restore Backup"
-        centered
-        size="lg"
-      >
-        <Stack gap="md">
-          {!selectedFile && (
-            <Dropzone
-              onDrop={(files: File[]) => setSelectedFile(files[0])}
-              onReject={() => {
-                notifications.show({
-                  title: "Error",
-                  message: "Please upload a valid ZIP file",
-                  color: "red",
-                });
-              }}
-              maxSize={500 * 1024 * 1024} // 500 MB
-              accept={[MIME_TYPES.zip]}
-            >
-              <Group justify="center" gap="xl" mih={120} style={{ pointerEvents: "none" }}>
-                <Dropzone.Accept>
-                  <TbUpload size={52} />
-                </Dropzone.Accept>
-                <Dropzone.Reject>
-                  <TbX size={52} />
-                </Dropzone.Reject>
-                <Dropzone.Idle>
-                  <TbDatabase size={52} />
-                </Dropzone.Idle>
-
-                <div>
-                  <Text size="xl" inline>
-                    Drag backup file here or click to select
-                  </Text>
-                  <Text size="sm" c="dimmed" inline mt={7}>
-                    Upload a backup ZIP file to restore
-                  </Text>
-                </div>
-              </Group>
-            </Dropzone>
-          )}
-
-          {selectedFile && (
-            <Alert icon={<TbCheck size={16} />} color="blue">
-              <Text size="sm">
-                Selected file: <strong>{selectedFile.name}</strong>
-              </Text>
-              <Text size="sm" c="dimmed">
-                Size: {formatFileSize(selectedFile.size)}
-              </Text>
-            </Alert>
-          )}
-
-          <Alert icon={<TbAlertCircle size={16} />} color="orange" variant="light">
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Warning: Restore will replace all current data
-              </Text>
-              <Text size="sm">
-                Make sure you have a recent backup before proceeding. This action cannot be undone.
-              </Text>
-              <Checkbox
-                mt="xs"
-                label="I understand and want to overwrite existing data"
-                checked={overwrite}
-                onChange={(e) => setOverwrite(e.currentTarget.checked)}
-              />
-            </Stack>
-          </Alert>
-
-          <Group justify="flex-end" mt="md">
-            <Button
-              variant="default"
-              onClick={() => {
-                setRestoreModalOpened(false);
-                setSelectedFile(null);
-                setOverwrite(false);
-              }}
-            >
-              Cancel
-            </Button>
-            {selectedFile && (
-              <Button
-                onClick={() => setSelectedFile(null)}
-                variant="light"
-                color="gray"
-              >
-                Change File
-              </Button>
-            )}
-            <Button
-              onClick={handleRestoreSubmit}
-              disabled={!selectedFile || !overwrite}
-              color="orange"
-            >
-              Restore Backup
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        initialFile={selectedBackupFile}
+        uploadPrompt="Drag backup file here or click to select"
+        uploadDescription="Upload a backup ZIP file to restore"
+        warningTitle="Warning: Restore will replace all current data"
+        warningMessage="Make sure you have a recent backup before proceeding. This action cannot be undone."
+        requireConfirmation={true}
+        confirmationLabel="I understand and want to overwrite existing data"
+        submitLabel="Restore Backup"
+        submitColor="orange"
+      />
     </>
   );
 }

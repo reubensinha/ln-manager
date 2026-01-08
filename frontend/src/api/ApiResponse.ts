@@ -230,3 +230,57 @@ export type RestoreResponse = {
     backup_timestamp: string | null;
   };
 }
+
+export type Indexer = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}
+
+export type DownloadClient = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  is_default?: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}
+
+export type Parser = {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  plugin_id?: string;
+  plugin?: PluginResponse;
+}
+
+export type IndexerResult = {
+  title: string;
+  link?: string;
+  download_url?: string;
+  guid?: string;
+  pub_date?: string;
+  size?: number;
+  seeders?: number;
+  peers?: number;
+  category?: string[];
+  description?: string;
+  torznab_attrs?: Record<string, string>;
+  indexer_name?: string;
+  score?: number;
+  rejections?: string[];
+}

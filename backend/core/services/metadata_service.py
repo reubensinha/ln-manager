@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from urllib.parse import unquote
 from fastapi import HTTPException, Depends
 from sqlmodel import Session, select
@@ -25,6 +26,10 @@ from backend.core.database.database import get_session
 from backend.core.plugins.metadata import MetadataPlugin, SeriesFetchModel
 from backend.core.notifications import notification_manager
 from backend.core.exceptions import ResourceNotFoundError, ValidationError
+from backend.core.logging_config import get_logger
+
+
+logger = get_logger(__name__)
 
 
 async def get_series_details(
@@ -37,9 +42,12 @@ async def get_series_details(
         external_id: External series ID
         session: Database session
     """
+    logger.debug(f"Getting series details: source_id={source_id}, external_id={external_id}")
+    
     # Query the metadata source
     metadata_source = session.get(MetadataSource, uuid.UUID(source_id))
     if not metadata_source or not metadata_source.enabled:
+        logger.warning(f"Metadata source not found or disabled: {source_id}")
         raise ResourceNotFoundError("Metadata source", source_id)
     
     if not metadata_source.plugin:
@@ -62,7 +70,9 @@ async def get_series_details(
 
         result = await source_instance.get_series_by_id(external_id)
         if not result:
+            logger.warning(f"Series not found: external_id={external_id} from {metadata_source.name}")
             raise ResourceNotFoundError(f"Series from {metadata_source.name}", external_id)
+        logger.info(f"Retrieved series details: {result.title} from {metadata_source.name}")
         return result
     finally:
         # Clean up if source has cleanup method
@@ -78,9 +88,12 @@ async def search_series(query: str, source_id: str, session: Session = Depends(g
         source_id: UUID of the MetadataSource
         session: Database session
     """
+    logger.info(f"Searching series: query='{query}', source_id={source_id}")
+    
     # Query the metadata source
     metadata_source = session.get(MetadataSource, uuid.UUID(source_id))
     if not metadata_source or not metadata_source.enabled:
+        logger.warning(f"Metadata source not found or disabled: {source_id}")
         raise ResourceNotFoundError("Metadata source", source_id)
     
     if not metadata_source.plugin:
@@ -99,6 +112,7 @@ async def search_series(query: str, source_id: str, session: Session = Depends(g
             raise ResourceNotFoundError("Metadata source", metadata_source.name)
 
         results = await source_instance.search_series(query)
+        logger.info(f"Search completed: found {len(results)} results for '{query}'")
         # TODO: Filter out existing series from results
         return results
     finally:
@@ -121,6 +135,7 @@ async def fetch_series(
         series_group: Optional series group ID
         session: Database session
     """
+    logger.info(f"Fetching series: source_id={source_id}, external_id={external_id}, group={series_group}")
     success = False
 
     notifications = []
@@ -146,11 +161,14 @@ async def fetch_series(
             raise ResourceNotFoundError("Metadata plugin", metadata_source.plugin.name)
 
         # ----- Fetch From Plugin-----
+        logger.debug(f"Fetching series data from plugin: {metadata_source.plugin.name}")
         data: SeriesFetchModel | None = await source_instance.fetch_series(external_id)
         if not data or not data.series:
+            logger.error(f"Failed to fetch series data: external_id={external_id}")
             raise ResourceNotFoundError(
                 f"Series from {metadata_source.name}", external_id
             )
+        logger.info(f"Successfully fetched series: {data.series.title}")
     finally:
         # Clean up plugin instance
         if source_instance and hasattr(source_instance, 'stop'):

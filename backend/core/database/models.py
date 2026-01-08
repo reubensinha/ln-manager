@@ -67,6 +67,7 @@ class PluginType(str, Enum):
     METADATA = "metadata"
     INDEXER = "indexer"
     DOWNLOAD_CLIENT = "download_client"
+    PARSER = "parser"
     GENERIC = "generic"
 
 
@@ -184,6 +185,7 @@ class Plugin(PluginBase, table=True):
     metadata_sources: list["MetadataSource"] = Relationship(back_populates="plugin")
     indexers: list["Indexer"] = Relationship(back_populates="plugin")
     download_clients: list["DownloadClient"] = Relationship(back_populates="plugin")
+    parsers: list["Parser"] = Relationship(back_populates="plugin")
 
 
 class PluginPublic(PluginBase):
@@ -248,6 +250,7 @@ class DownloadClientBase(SQLModel):
     description: str | None = None
     config: dict | None = Field(default=None, sa_column=Column(JSON))  # API keys, URLs, etc.
     enabled: bool = Field(default=True)
+    is_default: bool = Field(default=False)
     plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
 
 
@@ -258,6 +261,27 @@ class DownloadClient(DownloadClientBase, table=True):
 
 
 class DownloadClientPublic(DownloadClientBase):
+    id: uuid.UUID
+    plugin: Plugin | None = None
+
+
+class ParserBase(SQLModel):
+    name: str = Field(index=True)
+    version: str
+    author: str | None = None
+    description: str | None = None
+    config: dict | None = Field(default=None, sa_column=Column(JSON))  # Parser configuration
+    enabled: bool = Field(default=True)
+    plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
+
+
+class Parser(ParserBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    plugin: Plugin | None = Relationship(back_populates="parsers")
+
+
+class ParserPublic(ParserBase):
     id: uuid.UUID
     plugin: Plugin | None = None
 

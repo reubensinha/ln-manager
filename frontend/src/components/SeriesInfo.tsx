@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Center,
@@ -11,9 +11,12 @@ import {
   Button,
   Divider,
 } from "@mantine/core";
-import { TbEyeOff } from "react-icons/tb";
-import type { SeriesSourceResponse } from "../api/ApiResponse";
+import { useDisclosure } from "@mantine/hooks";
+import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
+import { getPluginCapabilities, downloadRelease } from "../api/api";
+import type { SeriesSourceResponse, IndexerResult } from "../api/ApiResponse";
 import type { PublishingStatus } from "../types/MetadataFieldTypes";
+import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
 const BLUR_NSFW: boolean = true;
 
@@ -37,7 +40,35 @@ function getStatusColor(status?: PublishingStatus): string {
 
 function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
   const [showNsfw, setShowNsfw] = useState(false);
+  const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
+  const [hasIndexers, setHasIndexers] = useState(false);
+  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && series.nsfw_img && !showNsfw;
+
+  useEffect(() => {
+    const fetchCapabilities = async () => {
+      const capabilities = await getPluginCapabilities();
+      setHasIndexers(capabilities.has_indexers);
+      setHasDownloadClients(capabilities.has_download_clients);
+    };
+    fetchCapabilities();
+  }, []);
+
+  const handleDownload = async (result: IndexerResult) => {
+    // Send both download_url and magnet link if available
+    // Let the backend/plugin decide which one to use
+    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
+    
+    const response = await downloadRelease(result.download_url, magnetLink);
+    if (response.success) {
+      console.log("Download started:", result.title);
+      // TODO: Show success notification
+    } else {
+      console.error("Download failed:", response.message);
+      // TODO: Show error notification
+    }
+  };
+
   return (
     <Stack style={{ flex: 1 }}>
       <Group align="flex-start" gap="xl">
@@ -308,6 +339,29 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
               </Group>
             </Box>
           )}
+
+          {/* Action Buttons */}
+          <Group gap="sm">
+            {hasIndexers && hasDownloadClients && (
+              <Button
+                variant="default"
+                leftSection={<TbRobot size={18} />}
+                disabled
+              >
+                Automatic Search
+              </Button>
+            )}
+
+            {hasIndexers && (
+              <Button
+                variant="outline"
+                leftSection={<TbSearch size={18} />}
+                onClick={openSearchModal}
+              >
+                Interactive Search
+              </Button>
+            )}
+          </Group>
         </Stack>
       </Group>
 
@@ -384,6 +438,16 @@ function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
             ))}
           </Group>
         </Box>
+      )}
+
+      {/* Interactive Search Modal */}
+      {hasIndexers && (
+        <IndexerResultTable
+          opened={searchModalOpened}
+          onClose={closeSearchModal}
+          initialQuery={series.title}
+          onDownload={handleDownload}
+        />
       )}
     </Stack>
   );

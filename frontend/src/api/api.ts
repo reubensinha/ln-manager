@@ -15,6 +15,10 @@ import type {
   TaskResponse,
   TaskStatusResponse,
   RestoreResponse,
+  Indexer,
+  DownloadClient,
+  Parser,
+  IndexerResult,
 } from "./ApiResponse";
 
 // Get the current protocol and hostname from the browser's address bar
@@ -214,6 +218,24 @@ export async function getPlugins(): Promise<PluginResponse[]> {
   }
 }
 
+export async function getPluginCapabilities(): Promise<{
+  has_indexers: boolean;
+  has_download_clients: boolean;
+  has_metadata_sources: boolean;
+}> {
+  try {
+    const response = await api.get(`/plugin-capabilities`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin capabilities:", error);
+    return {
+      has_indexers: false,
+      has_download_clients: false,
+      has_metadata_sources: false,
+    };
+  }
+}
+
 export async function uploadPlugin(
   file: File
 ): Promise<{ success: boolean; message: string }> {
@@ -298,7 +320,29 @@ export async function getPluginIndexers(pluginName: string): Promise<PluginCapab
     return [];
   }
 }
-
+export async function downloadRelease(
+  downloadUrl?: string,
+  magnet?: string,
+  downloadClientId?: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await api.post(`/download`, null, {
+      params: {
+        download_url: downloadUrl,
+        magnet: magnet,
+        download_client_id: downloadClientId,
+      },
+    });
+    return { success: true, message: response.data.message };
+  } catch (error: unknown) {
+    console.error("Error downloading release:", error);
+    const axiosError = error as { response?: { data?: { detail?: string } } };
+    return { 
+      success: false, 
+      message: axiosError.response?.data?.detail || "Failed to download release" 
+    };
+  }
+}
 export async function getPluginClients(pluginName: string): Promise<PluginCapability[]> {
   try {
     const response = await api.get(`/plugins/${pluginName}/clients`);
@@ -306,6 +350,193 @@ export async function getPluginClients(pluginName: string): Promise<PluginCapabi
   } catch (error) {
     console.error("Error fetching plugin clients:", error);
     return [];
+  }
+}
+
+export async function getIndexers(): Promise<Indexer[]> {
+  try {
+    const response = await api.get(`/indexers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching indexers:", error);
+    return [];
+  }
+}
+
+export async function createIndexer(
+  indexer: Omit<Indexer, "id">
+): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
+  try {
+    const response = await api.post(`/indexers`, indexer);
+    return { success: true, indexer: response.data };
+  } catch (error) {
+    console.error("Error creating indexer:", error);
+    return { success: false, message: "Failed to create indexer" };
+  }
+}
+
+export async function updateIndexer(
+  indexerId: string,
+  indexer: Partial<Omit<Indexer, "id">>
+): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
+  try {
+    const response = await api.patch(`/indexers/${indexerId}`, indexer);
+    return { success: true, indexer: response.data };
+  } catch (error) {
+    console.error("Error updating indexer:", error);
+    return { success: false, message: "Failed to update indexer" };
+  }
+}
+
+export async function deleteIndexer(
+  indexerId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/indexers/${indexerId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting indexer:", error);
+    return { success: false, message: "Failed to delete indexer" };
+  }
+}
+
+export async function testIndexerConnection(
+  config: { plugin_id?: string; config: Record<string, unknown> }
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.post(`/indexers/test-connection`, config);
+    return response.data;
+  } catch (error) {
+    console.error("Error testing indexer connection:", error);
+    return { success: false, message: "Failed to test connection" };
+  }
+}
+
+export async function getPluginParsers(pluginName: string): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/parsers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin parsers:", error);
+    return [];
+  }
+}
+
+export async function getParsers(): Promise<Parser[]> {
+  try {
+    const response = await api.get(`/parsers`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching parsers:", error);
+    return [];
+  }
+}
+
+export async function createParser(
+  parser: Omit<Parser, "id">
+): Promise<{ success: boolean; parser?: Parser; message?: string }> {
+  try {
+    const response = await api.post(`/parsers`, parser);
+    return { success: true, parser: response.data };
+  } catch (error) {
+    console.error("Error creating parser:", error);
+    return { success: false, message: "Failed to create parser" };
+  }
+}
+
+export async function updateParser(
+  parserId: string,
+  parser: Partial<Omit<Parser, "id">>
+): Promise<{ success: boolean; parser?: Parser; message?: string }> {
+  try {
+    const response = await api.patch(`/parsers/${parserId}`, parser);
+    return { success: true, parser: response.data };
+  } catch (error) {
+    console.error("Error updating parser:", error);
+    return { success: false, message: "Failed to update parser" };
+  }
+}
+
+export async function deleteParser(
+  parserId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/parsers/${parserId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting parser:", error);
+    return { success: false, message: "Failed to delete parser" };
+  }
+}
+
+export async function toggleParser(
+  parserId: string
+): Promise<Parser | null> {
+  try {
+    const response = await api.patch(`/parsers/${parserId}/toggle`);
+    return response.data;
+  } catch (error) {
+    console.error("Error toggling parser:", error);
+    return null;
+  }
+}
+
+export async function getDownloadClients(): Promise<DownloadClient[]> {
+  try {
+    const response = await api.get(`/download-clients`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching download clients:", error);
+    return [];
+  }
+}
+
+export async function getPluginDownloadClients(
+  pluginName: string
+): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/clients`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin download clients:", error);
+    return [];
+  }
+}
+
+export async function createDownloadClient(
+  client: Omit<DownloadClient, "id">
+): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
+  try {
+    const response = await api.post(`/download-clients`, client);
+    return { success: true, client: response.data };
+  } catch (error) {
+    console.error("Error creating download client:", error);
+    return { success: false, message: "Failed to create download client" };
+  }
+}
+
+export async function updateDownloadClient(
+  clientId: string,
+  client: Partial<Omit<DownloadClient, "id">>
+): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
+  try {
+    const response = await api.patch(`/download-clients/${clientId}`, client);
+    return { success: true, client: response.data };
+  } catch (error) {
+    console.error("Error updating download client:", error);
+    return { success: false, message: "Failed to update download client" };
+  }
+}
+
+export async function deleteDownloadClient(
+  clientId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/download-clients/${clientId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting download client:", error);
+    return { success: false, message: "Failed to delete download client" };
   }
 }
 
@@ -424,5 +655,28 @@ export async function clearTask(taskId: string): Promise<{ success: boolean; mes
   } catch (error) {
     console.error("Error clearing task:", error);
     return { success: false, message: "Failed to clear task" };
+  }
+}
+
+export async function searchIndexers(query: string): Promise<IndexerResult[]> {
+  try {
+    const response = await api.get(`/indexers/search`, {
+      params: { query }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching indexers:", error);
+    return [];
+  }
+}
+export async function searchSpecificIndexer(indexerId: string, query: string): Promise<IndexerResult[]> {
+  try {
+    const response = await api.get(`/indexers/search/${indexerId}`, {
+      params: { query },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error searching specific indexer:", error);
+    return [];
   }
 }
