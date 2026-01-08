@@ -15,6 +15,7 @@ dependencies = [
     "pyrate-limiter>=3.9.0",
     "python-multipart>=0.0.20",
     "pyyaml>=6.0.3",
+    "qbittorrent-api>=2025.11.1",
     "sqlalchemy>=2.0.44",
     "sqlmodel>=0.0.27",
     "uvicorn>=0.38.0",

@@ -469,6 +469,55 @@ export async function getDownloadClients(): Promise<DownloadClient[]> {
   }
 }
 
+export async function getPluginDownloadClients(
+  pluginName: string
+): Promise<PluginCapability[]> {
+  try {
+    const response = await api.get(`/plugins/${pluginName}/clients`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching plugin download clients:", error);
+    return [];
+  }
+}
+
+export async function createDownloadClient(
+  client: Omit<DownloadClient, "id">
+): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
+  try {
+    const response = await api.post(`/download-clients`, client);
+    return { success: true, client: response.data };
+  } catch (error) {
+    console.error("Error creating download client:", error);
+    return { success: false, message: "Failed to create download client" };
+  }
+}
+
+export async function updateDownloadClient(
+  clientId: string,
+  client: Partial<Omit<DownloadClient, "id">>
+): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
+  try {
+    const response = await api.patch(`/download-clients/${clientId}`, client);
+    return { success: true, client: response.data };
+  } catch (error) {
+    console.error("Error updating download client:", error);
+    return { success: false, message: "Failed to update download client" };
+  }
+}
+
+export async function deleteDownloadClient(
+  clientId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await api.delete(`/download-clients/${clientId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting download client:", error);
+    return { success: false, message: "Failed to delete download client" };
+  }
+}
+
 // Backup & Restore API
 
 export async function createBackup(): Promise<BackupResponse> {

@@ -259,3 +259,66 @@ async def list_download_clients(*, session: Session = Depends(get_session)):
     clients = session.exec(select(DownloadClient)).all()
     return clients
 
+
+@router.post("/download-clients", response_model=DownloadClientPublic)
+async def create_download_client(
+    *, session: Session = Depends(get_session), client: DownloadClientBase
+):
+    """Create a new download client instance."""
+    # If this client is marked as default, unset any existing default
+    if client.is_default:
+        existing_defaults = session.exec(
+            select(DownloadClient).where(DownloadClient.is_default == True)
+        ).all()
+        for existing in existing_defaults:
+            existing.is_default = False
+            session.add(existing)
+    
+    db_client = DownloadClient.model_validate(client)
+    session.add(db_client)
+    session.commit()
+    session.refresh(db_client)
+    return db_client
+
+
+@router.patch("/download-clients/{client_id}", response_model=DownloadClientPublic)
+async def update_download_client(
+    *, session: Session = Depends(get_session), client_id: UUID, client: DownloadClientBase
+):
+    """Update an existing download client instance."""
+    db_client = session.get(DownloadClient, client_id)
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Download client not found")
+    
+    client_data = client.model_dump(exclude_unset=True)
+    
+    # If setting this client as default, unset any existing default
+    if client_data.get("is_default"):
+        existing_defaults = session.exec(
+            select(DownloadClient).where(
+                DownloadClient.is_default == True,
+                DownloadClient.id != client_id
+            )
+        ).all()
+        for existing in existing_defaults:
+            existing.is_default = False
+            session.add(existing)
+    
+    db_client.sqlmodel_update(client_data)
+    session.add(db_client)
+    session.commit()
+    session.refresh(db_client)
+    return db_client
+
+
+@router.delete("/download-clients/{client_id}", response_model=dict[str, str])
+async def delete_download_client(*, session: Session = Depends(get_session), client_id: UUID):
+    """Delete a download client instance."""
+    db_client = session.get(DownloadClient, client_id)
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Download client not found")
+    
+    session.delete(db_client)
+    session.commit()
+    return {"success": "true", "message": "Download client deleted successfully"}
+

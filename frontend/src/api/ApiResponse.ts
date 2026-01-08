@@ -251,6 +251,7 @@ export type DownloadClient = {
   description?: string;
   config?: Record<string, unknown>;
   enabled: boolean;
+  is_default?: boolean;
   plugin_id?: string;
   plugin?: PluginResponse;
 }

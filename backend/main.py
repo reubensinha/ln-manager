@@ -244,21 +244,31 @@ async def lifespan(app: FastAPI):
                 # Register plugin's download clients in database
                 try:
                     available_clients = plugin_instance.get_available_clients()
-                    advertised_names = {c["name"] for c in available_clients}
+                    
+                    # Only auto-register download clients that are NOT user-configurable
+                    # User-configurable clients (like qBittorrent) should only be added via UI
+                    auto_register_clients = [
+                        c for c in available_clients 
+                        if not c.get("user_configurable", False)
+                    ]
+                    advertised_names = {c["name"] for c in auto_register_clients}
                     
                     # Get all existing clients for this plugin
                     existing_clients = session.exec(
                         select(DownloadClient).where(DownloadClient.plugin_id == plugin.id)
                     ).all()
                     
-                    # Disable clients that are no longer advertised
+                    # Only disable auto-registered clients that are no longer advertised
+                    # Don't touch user-configured clients (those with custom names/configs)
                     for existing in existing_clients:
-                        if existing.name not in advertised_names:
+                        # Check if this looks like an auto-registered client
+                        # Auto-registered clients have empty config dicts
+                        if (existing.config is None or existing.config == {}) and existing.name not in advertised_names:
                             existing.enabled = False
                             logger.info(f"Disabled download client '{existing.name}' (no longer advertised by {plugin.name})")
                     
                     # Add new advertised clients (don't auto re-enable disabled ones)
-                    for client_info in available_clients:
+                    for client_info in auto_register_clients:
                         existing = session.exec(
                             select(DownloadClient)
                             .where(DownloadClient.name == client_info["name"])

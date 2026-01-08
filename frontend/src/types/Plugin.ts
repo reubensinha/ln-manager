@@ -32,6 +32,7 @@ export interface IndexerConfigProps {
 
 export interface DownloadClientConfigProps {
   client?: DownloadClient;
+  pluginId: string;
   onSave: (client: Omit<DownloadClient, "id">) => Promise<void>;
   onCancel: () => void;
 }

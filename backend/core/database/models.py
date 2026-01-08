@@ -250,6 +250,7 @@ class DownloadClientBase(SQLModel):
     description: str | None = None
     config: dict | None = Field(default=None, sa_column=Column(JSON))  # API keys, URLs, etc.
     enabled: bool = Field(default=True)
+    is_default: bool = Field(default=False)
     plugin_id: uuid.UUID | None = Field(foreign_key="plugin.id", ondelete="CASCADE")
 
 
