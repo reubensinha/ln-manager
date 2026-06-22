@@ -11,8 +11,11 @@ import { MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from '@mantine/notifications';
 import { BrowserRouter, Route, Routes } from "react-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 import Layout from "./components/Layout/Layout.tsx";
+import { queryClient } from "./api/queryClient.ts";
 import { websocketAPI } from "./api/websocket_api.ts";
 
 import NothingFoundBackground from "./notfound/notfound.tsx";
@@ -51,6 +54,7 @@ function App() {
     <MantineProvider defaultColorScheme="auto">
       <Notifications />
       <ModalsProvider>
+        <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Layout>
             <Routes>
@@ -89,6 +93,8 @@ function App() {
             </Routes>
           </Layout>
         </BrowserRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
       </ModalsProvider>
     </MantineProvider>
   );

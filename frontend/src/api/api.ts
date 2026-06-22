@@ -34,15 +34,10 @@ export async function searchSeries(
   query: string,
   sourceId: string
 ): Promise<SearchSeriesResponse[]> {
-  try {
-    const response = await api.get(`/search`, {
-      params: { query, source_id: sourceId },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching series:", error);
-    return [];
-  }
+  const response = await api.get(`/search`, {
+    params: { query, source_id: sourceId },
+  });
+  return response.data;
 }
 
 export async function addSeries(
@@ -50,79 +45,44 @@ export async function addSeries(
   external_id: string,
   series_group: string | null = null
 ): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.post(`/add/series`, {
-      source_id: sourceId,
-      external_id,
-      series_group,
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error adding series:", error);
-    return { success: false, message: "Failed to add series" };
-  }
+  const response = await api.post(`/add/series`, {
+    source_id: sourceId,
+    external_id,
+    series_group,
+  });
+  return response.data;
 }
 
 export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
-  // Placeholder function to simulate fetching series groups from an API
-  try {
-    const response = await api.get(`/series-groups`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series groups:", error);
-    return [];
-  }
+  const response = await api.get(`/series-groups`);
+  return response.data;
 }
 
 export async function getSeriesGroupById(
   id: string
-): Promise<SeriesGroupsResponse | null> {
-  // Placeholder function to simulate fetching series groups from an API
-  try {
-    const response = await api.get(`/series-groups/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series group by ID:", error);
-    return null;
-  }
+): Promise<SeriesGroupsResponse> {
+  const response = await api.get(`/series-groups/${id}`);
+  return response.data;
 }
 
 export async function getSeries(): Promise<Series[]> {
-  // Placeholder function to simulate fetching series data from an API
-  try {
-    const response = await api.get(`/series`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series:", error);
-    return [];
-  }
+  const response = await api.get(`/series`);
+  return response.data;
 }
 
-export async function getSeriesById(id: string): Promise<Series | null> {
-  // Placeholder function to simulate fetching a single series by ID from an API
-  try {
-    const response = await api.get(`/series/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series by ID:", error);
-    return null;
-  }
+export async function getSeriesById(id: string): Promise<Series> {
+  const response = await api.get(`/series/${id}`);
+  return response.data;
 }
 
 export async function getSeriesFromSource(
   sourceId: string,
   external_id: string
-): Promise<SeriesSourceResponse | null> {
-  // Placeholder function to simulate fetching series data from an external source
-  try {
-    const response = await api.get(`/series_details`, {
-      params: { source_id: sourceId, external_id },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching series:", error);
-    return null;
-  }
+): Promise<SeriesSourceResponse> {
+  const response = await api.get(`/series_details`, {
+    params: { source_id: sourceId, external_id },
+  });
+  return response.data;
 }
 
 export async function getBookByID(id: string): Promise<Book | null> {
@@ -137,13 +97,8 @@ export async function getBookByID(id: string): Promise<Book | null> {
 }
 
 export async function getReleases(): Promise<Release[]> {
-  try {
-    const response = await api.get(`/releases`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching releases:", error);
-    return [];
-  }
+  const response = await api.get(`/releases`);
+  return response.data;
 }
 
 export async function toggleBookDownloaded(
@@ -161,14 +116,9 @@ export async function toggleBookDownloaded(
 export async function setBookDownloaded(
   bookId: string,
   downloaded: boolean
-): Promise<{ status: string } | null> {
-  try {
-    const response = await api.patch(`/set-book-downloaded/${bookId}`, null, { params: { downloaded } });
-    return response.data;
-  } catch (error) {
-    console.error("Error setting book downloaded status:", error);
-    return null;
-  }
+): Promise<{ status: string }> {
+  const response = await api.patch(`/set-book-downloaded/${bookId}`, null, { params: { downloaded } });
+  return response.data;
 }
 
 export async function toggleBookMonitored(
@@ -292,13 +242,8 @@ export async function restartBackend(): Promise<{
 }
 
 export async function getMetadataSources(): Promise<MetadataSource[]> {
-  try {
-    const response = await api.get(`/sources`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching metadata sources:", error);
-    return [];
-  }
+  const response = await api.get(`/sources`);
+  return response.data;
 }
 
 export async function getPluginSources(pluginName: string): Promise<PluginCapability[]> {

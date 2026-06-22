@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Box, Loader, Center } from '@mantine/core';
-import { getReleases } from '../api/api';
-import type { Release } from '../api/ApiResponse';
+import { useReleases } from '../api/hooks/series';
 import CalendarMonthView from '../components/Calendar/CalendarMonthView';
 import CalendarWeekView from '../components/Calendar/CalendarWeekView';
 import CalendarHeader from '../components/Calendar/CalendarHeader';
@@ -10,21 +9,9 @@ import WeekdayHeaders from '../components/Calendar/WeekdayHeaders';
 type ViewMode = 'month' | 'week';
 
 function CalendarPage() {
-  const [releases, setReleases] = useState<Release[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: releases = [], isLoading: loading } = useReleases();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-
-  useEffect(() => {
-    const fetchReleases = async () => {
-      setLoading(true);
-      const data = await getReleases();
-      setReleases(data);
-      setLoading(false);
-    };
-
-    fetchReleases();
-  }, []);
 
   const getMonthWeeks = () => {
     const year = currentDate.getFullYear();
