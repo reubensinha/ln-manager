@@ -58,10 +58,13 @@ class WebSocketAPI {
 
             if (message.event === "notification") {
                 const notification: NotificationPayload = JSON.parse(message.payload);
+                // Backend serializes NotificationType uppercase ("INFO", "SUCCESS", ...);
+                // the lookup tables below are keyed lowercase, so normalize the case.
+                const type = notification.type.toLowerCase();
                 notifications.show({
-                    title: this.getTitle(notification.type),
+                    title: this.getTitle(type),
                     message: notification.message,
-                    color: this.getColor(notification.type),
+                    color: this.getColor(type),
                     autoClose: 5000,
                 });
             }
