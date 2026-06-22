@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Container,
   Title,
@@ -14,20 +14,23 @@ import {
   Switch,
 } from "@mantine/core";
 import { TbDots, TbTrash, TbSettings, TbPlugConnected } from "react-icons/tb";
+import { getPluginDownloadClients } from "../api/api";
 import {
-  getDownloadClients,
-  createDownloadClient,
-  updateDownloadClient,
-  deleteDownloadClient,
-  getPluginDownloadClients,
-} from "../api/api";
+  useDownloadClients,
+  useCreateDownloadClient,
+  useUpdateDownloadClient,
+  useDeleteDownloadClient,
+} from "../api/hooks/downloadClients";
 import type { DownloadClient, PluginCapability } from "../api/ApiResponse";
 import { AddDownloadClientModal } from "../components/DownloadClient/AddDownloadClientModal";
 import { DownloadClientConfigModal } from "../components/DownloadClient/DownloadClientConfigModal";
 
 function DownloadClientPage() {
-  const [clients, setClients] = useState<DownloadClient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: clients = [], isLoading: loading } = useDownloadClients();
+  const createMutation = useCreateDownloadClient();
+  const updateMutation = useUpdateDownloadClient();
+  const deleteMutation = useDeleteDownloadClient();
+
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [configModalOpened, setConfigModalOpened] = useState(false);
   const [selectedPluginName, setSelectedPluginName] = useState<string>("");
@@ -37,22 +40,6 @@ function DownloadClientPage() {
   const [editingClient, setEditingClient] = useState<
     DownloadClient | undefined
   >();
-
-  useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
-    setLoading(true);
-    try {
-      const data = await getDownloadClients();
-      setClients(data);
-    } catch (error) {
-      console.error("Error loading download clients:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getClientFeatures = (
     config: Record<string, unknown> | undefined
@@ -108,10 +95,7 @@ function DownloadClientPage() {
   };
 
   const handleSaveClient = async (clientData: Omit<DownloadClient, "id">) => {
-    const result = await createDownloadClient(clientData);
-    if (result.success) {
-      await loadClients();
-    }
+    await createMutation.mutateAsync(clientData);
   };
 
   const handleEditClient = async (client: DownloadClient) => {
@@ -145,35 +129,17 @@ function DownloadClientPage() {
 
   const handleUpdateClient = async (clientData: Omit<DownloadClient, "id">) => {
     if (!editingClient) return;
-
-    const result = await updateDownloadClient(editingClient.id, clientData);
-    if (result.success) {
-      await loadClients();
-    }
+    await updateMutation.mutateAsync({ id: editingClient.id, data: clientData });
   };
 
-  const handleToggleEnabled = async (clientId: string) => {
+  const handleToggleEnabled = (clientId: string) => {
     const client = clients.find((c) => c.id === clientId);
     if (!client) return;
-
-    const result = await updateDownloadClient(clientId, {
-      enabled: !client.enabled,
-    });
-
-    if (result.success) {
-      setClients(
-        clients.map((c) =>
-          c.id === clientId ? { ...c, enabled: !c.enabled } : c
-        )
-      );
-    }
+    updateMutation.mutate({ id: clientId, data: { enabled: !client.enabled } });
   };
 
-  const handleDelete = async (clientId: string) => {
-    const result = await deleteDownloadClient(clientId);
-    if (result.success) {
-      setClients(clients.filter((client) => client.id !== clientId));
-    }
+  const handleDelete = (clientId: string) => {
+    deleteMutation.mutate(clientId);
   };
 
   return (

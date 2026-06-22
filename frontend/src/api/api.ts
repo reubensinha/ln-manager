@@ -158,14 +158,8 @@ export async function toggleSeriesMonitored(
 }
 
 export async function getPlugins(): Promise<PluginResponse[]> {
-  // Placeholder function to simulate fetching plugins from an API
-  try {
-    const response = await api.get(`/plugins`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugins:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins`);
+  return response.data;
 }
 
 export async function getPluginCapabilities(): Promise<{
@@ -257,13 +251,8 @@ export async function getPluginSources(pluginName: string): Promise<PluginCapabi
 }
 
 export async function getPluginIndexers(pluginName: string): Promise<PluginCapability[]> {
-  try {
-    const response = await api.get(`/plugins/${pluginName}/indexers`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins/${pluginName}/indexers`);
+  return response.data;
 }
 export async function downloadRelease(
   downloadUrl?: string,
@@ -299,50 +288,27 @@ export async function getPluginClients(pluginName: string): Promise<PluginCapabi
 }
 
 export async function getIndexers(): Promise<Indexer[]> {
-  try {
-    const response = await api.get(`/indexers`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers`);
+  return response.data;
 }
 
 export async function createIndexer(
   indexer: Omit<Indexer, "id">
-): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
-  try {
-    const response = await api.post(`/indexers`, indexer);
-    return { success: true, indexer: response.data };
-  } catch (error) {
-    console.error("Error creating indexer:", error);
-    return { success: false, message: "Failed to create indexer" };
-  }
+): Promise<Indexer> {
+  const response = await api.post(`/indexers`, indexer);
+  return response.data;
 }
 
 export async function updateIndexer(
   indexerId: string,
   indexer: Partial<Omit<Indexer, "id">>
-): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
-  try {
-    const response = await api.patch(`/indexers/${indexerId}`, indexer);
-    return { success: true, indexer: response.data };
-  } catch (error) {
-    console.error("Error updating indexer:", error);
-    return { success: false, message: "Failed to update indexer" };
-  }
+): Promise<Indexer> {
+  const response = await api.patch(`/indexers/${indexerId}`, indexer);
+  return response.data;
 }
 
-export async function deleteIndexer(
-  indexerId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/indexers/${indexerId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting indexer:", error);
-    return { success: false, message: "Failed to delete indexer" };
-  }
+export async function deleteIndexer(indexerId: string): Promise<void> {
+  await api.delete(`/indexers/${indexerId}`);
 }
 
 export async function testIndexerConnection(
@@ -427,62 +393,34 @@ export async function toggleParser(
 }
 
 export async function getDownloadClients(): Promise<DownloadClient[]> {
-  try {
-    const response = await api.get(`/download-clients`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching download clients:", error);
-    return [];
-  }
+  const response = await api.get(`/download-clients`);
+  return response.data;
 }
 
 export async function getPluginDownloadClients(
   pluginName: string
 ): Promise<PluginCapability[]> {
-  try {
-    const response = await api.get(`/plugins/${pluginName}/clients`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin download clients:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins/${pluginName}/clients`);
+  return response.data;
 }
 
 export async function createDownloadClient(
   client: Omit<DownloadClient, "id">
-): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
-  try {
-    const response = await api.post(`/download-clients`, client);
-    return { success: true, client: response.data };
-  } catch (error) {
-    console.error("Error creating download client:", error);
-    return { success: false, message: "Failed to create download client" };
-  }
+): Promise<DownloadClient> {
+  const response = await api.post(`/download-clients`, client);
+  return response.data;
 }
 
 export async function updateDownloadClient(
   clientId: string,
   client: Partial<Omit<DownloadClient, "id">>
-): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
-  try {
-    const response = await api.patch(`/download-clients/${clientId}`, client);
-    return { success: true, client: response.data };
-  } catch (error) {
-    console.error("Error updating download client:", error);
-    return { success: false, message: "Failed to update download client" };
-  }
+): Promise<DownloadClient> {
+  const response = await api.patch(`/download-clients/${clientId}`, client);
+  return response.data;
 }
 
-export async function deleteDownloadClient(
-  clientId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/download-clients/${clientId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting download client:", error);
-    return { success: false, message: "Failed to delete download client" };
-  }
+export async function deleteDownloadClient(clientId: string): Promise<void> {
+  await api.delete(`/download-clients/${clientId}`);
 }
 
 // Backup & Restore API
@@ -604,24 +542,14 @@ export async function clearTask(taskId: string): Promise<{ success: boolean; mes
 }
 
 export async function searchIndexers(query: string): Promise<IndexerResult[]> {
-  try {
-    const response = await api.get(`/indexers/search`, {
-      params: { query }
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers/search`, {
+    params: { query }
+  });
+  return response.data;
 }
 export async function searchSpecificIndexer(indexerId: string, query: string): Promise<IndexerResult[]> {
-  try {
-    const response = await api.get(`/indexers/search/${indexerId}`, {
-      params: { query },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching specific indexer:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers/search/${indexerId}`, {
+    params: { query },
+  });
+  return response.data;
 }

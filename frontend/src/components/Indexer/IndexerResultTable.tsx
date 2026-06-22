@@ -20,8 +20,9 @@ import {
 import { TbDownload, TbAlertCircle, TbSearch } from "react-icons/tb";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import type { IndexerResult, Indexer } from "../../api/ApiResponse";
-import { searchIndexers, searchSpecificIndexer, getIndexers } from "../../api/api";
+import type { IndexerResult } from "../../api/ApiResponse";
+import { useIndexers } from "../../api/hooks/indexers";
+import { useIndexerSearch } from "../../api/hooks/indexers";
 
 dayjs.extend(relativeTime);
 
@@ -48,53 +49,33 @@ export function IndexerResultTable({
   const [indexerFilter, setIndexerFilter] = useState("");
   const [minScore, setMinScore] = useState<number | string>("");
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [searchResults, setSearchResults] = useState<IndexerResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [indexers, setIndexers] = useState<Indexer[]>([]);
   const [selectedIndexer, setSelectedIndexer] = useState<string | null>("all");
 
-  // Update search query when initialQuery changes or modal opens
+  const { data: indexerList = [] } = useIndexers(opened);
+  const indexers = indexerList.filter((i) => i.enabled);
+
+  const searchMutation = useIndexerSearch();
+  const searching = searchMutation.isPending;
+  const searchResults: IndexerResult[] = useMemo(
+    () =>
+      (searchMutation.data ?? []).map((result) => ({
+        ...result,
+        indexer_name: result.indexer_name || "Unknown",
+      })),
+    [searchMutation.data]
+  );
+
+  // Reset search query/indexer when the modal opens.
   useEffect(() => {
     if (opened) {
       setSearchQuery(initialQuery);
       setSelectedIndexer("all");
-      loadIndexers();
     }
   }, [opened, initialQuery]);
 
-  const loadIndexers = async () => {
-    try {
-      const indexerList = await getIndexers();
-      setIndexers(indexerList.filter(i => i.enabled));
-    } catch (error) {
-      console.error("Error loading indexers:", error);
-    }
-  };
-
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!searchQuery.trim()) return;
-    
-    setSearching(true);
-    try {
-      let results: IndexerResult[];
-      
-      if (selectedIndexer === "all" || !selectedIndexer) {
-        results = await searchIndexers(searchQuery);
-      } else {
-        results = await searchSpecificIndexer(selectedIndexer, searchQuery);
-      }
-      
-      const mappedResults = results.map((result) => ({
-        ...result,
-        indexer_name: result.indexer_name || "Unknown",
-      }));
-      setSearchResults(mappedResults);
-    } catch (error) {
-      console.error("Error searching indexers:", error);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
+    searchMutation.mutate({ query: searchQuery, indexerId: selectedIndexer });
   };
 
   // Filter and sort results

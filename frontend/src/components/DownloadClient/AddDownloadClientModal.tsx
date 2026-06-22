@@ -1,7 +1,6 @@
 import { Modal, Stack, Card, Text, Group, Badge } from "@mantine/core";
-import { useEffect, useState } from "react";
-import { getPlugins, getPluginDownloadClients } from "../../api/api";
-import type { PluginResponse, PluginCapability } from "../../api/ApiResponse";
+import type { PluginCapability } from "../../api/ApiResponse";
+import { usePluginDownloadClientOptions } from "../../api/hooks/plugins";
 
 interface AddDownloadClientModalProps {
   opened: boolean;
@@ -9,44 +8,9 @@ interface AddDownloadClientModalProps {
   onSelectClient: (pluginName: string, pluginId: string, clientCapability: PluginCapability) => void;
 }
 
-interface ClientOption {
-  plugin: PluginResponse;
-  capability: PluginCapability;
-}
-
 export function AddDownloadClientModal({ opened, onClose, onSelectClient }: AddDownloadClientModalProps) {
-  const [clientOptions, setClientOptions] = useState<ClientOption[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (opened) {
-      loadClientOptions();
-    }
-  }, [opened]);
-
-  const loadClientOptions = async () => {
-    setLoading(true);
-    try {
-      const plugins = await getPlugins();
-      
-      const options: ClientOption[] = [];
-      // Check each plugin for download client capabilities
-      for (const plugin of plugins) {
-        const capabilities = await getPluginDownloadClients(plugin.name);
-        if (capabilities && capabilities.length > 0) {
-          for (const capability of capabilities) {
-            options.push({ plugin, capability });
-          }
-        }
-      }
-      
-      setClientOptions(options);
-    } catch (error) {
-      console.error("Error loading download client options:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: clientOptions = [], isLoading: loading } =
+    usePluginDownloadClientOptions(opened);
 
   return (
     <Modal

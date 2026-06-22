@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Container,
   Title,
@@ -14,36 +14,28 @@ import {
   Switch,
 } from "@mantine/core";
 import { TbDots, TbTrash, TbSettings } from "react-icons/tb";
-import { getIndexers, createIndexer, updateIndexer, deleteIndexer } from "../api/api";
+import {
+  useIndexers,
+  useCreateIndexer,
+  useUpdateIndexer,
+  useDeleteIndexer,
+} from "../api/hooks/indexers";
 import type { Indexer, PluginCapability } from "../api/ApiResponse";
 import { AddIndexerModal } from "../components/Indexer/AddIndexerModal";
 import { IndexerConfigModal } from "../components/Indexer/IndexerConfigModal";
 
 function IndexersPage() {
-  const [indexers, setIndexers] = useState<Indexer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: indexers = [], isLoading: loading } = useIndexers();
+  const createMutation = useCreateIndexer();
+  const updateMutation = useUpdateIndexer();
+  const deleteMutation = useDeleteIndexer();
+
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [configModalOpened, setConfigModalOpened] = useState(false);
   const [selectedPluginName, setSelectedPluginName] = useState<string>("");
   const [selectedPluginId, setSelectedPluginId] = useState<string>("");
   const [selectedCapability, setSelectedCapability] = useState<PluginCapability | null>(null);
   const [editingIndexer, setEditingIndexer] = useState<Indexer | undefined>();
-
-  useEffect(() => {
-    loadIndexers();
-  }, []);
-
-  const loadIndexers = async () => {
-    setLoading(true);
-    try {
-      const data = await getIndexers();
-      setIndexers(data);
-    } catch (error) {
-      console.error("Error loading indexers:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getIndexerCapabilities = (config: Record<string, unknown> | undefined) => {
     // Extract capabilities from config - adjust based on your actual config structure
@@ -85,10 +77,7 @@ function IndexersPage() {
   };
 
   const handleSaveIndexer = async (indexerData: Omit<Indexer, "id">) => {
-    const result = await createIndexer(indexerData);
-    if (result.success) {
-      await loadIndexers();
-    }
+    await createMutation.mutateAsync(indexerData);
   };
 
   const handleEditIndexer = (indexer: Indexer) => {
@@ -103,35 +92,18 @@ function IndexersPage() {
 
   const handleUpdateIndexer = async (indexerData: Omit<Indexer, "id">) => {
     if (!editingIndexer) return;
-    
-    const result = await updateIndexer(editingIndexer.id, indexerData);
-    if (result.success) {
-      await loadIndexers();
-    }
+    await updateMutation.mutateAsync({ id: editingIndexer.id, data: indexerData });
   };
 
-  const handleToggleEnabled = async (indexerId: string) => {
-    const indexer = indexers.find(i => i.id === indexerId);
+  const handleToggleEnabled = (indexerId: string) => {
+    const indexer = indexers.find((i) => i.id === indexerId);
     if (!indexer) return;
-
-    // Send only the enabled field - backend supports partial updates
-    const result = await updateIndexer(indexerId, { 
-      enabled: !indexer.enabled 
-    });
-    
-    if (result.success) {
-      // Optimistically update the UI
-      setIndexers(indexers.map(i => 
-        i.id === indexerId ? { ...i, enabled: !i.enabled } : i
-      ));
-    }
+    // Backend supports partial updates; the cache refetches on success.
+    updateMutation.mutate({ id: indexerId, data: { enabled: !indexer.enabled } });
   };
 
-  const handleDelete = async (indexerId: string) => {
-    const result = await deleteIndexer(indexerId);
-    if (result.success) {
-      setIndexers(indexers.filter(indexer => indexer.id !== indexerId));
-    }
+  const handleDelete = (indexerId: string) => {
+    deleteMutation.mutate(indexerId);
   };
 
   return (

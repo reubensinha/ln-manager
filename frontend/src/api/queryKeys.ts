@@ -9,4 +9,11 @@ export const queryKeys = {
   seriesFromSource: (sourceId: string, externalId: string) =>
     ["seriesFromSource", sourceId, externalId] as const,
   search: (source: string, query: string) => ["search", source, query] as const,
+
+  // Plugins / indexers / download clients (settings slice)
+  plugins: ["plugins"] as const,
+  pluginIndexerOptions: ["pluginIndexerOptions"] as const,
+  pluginDownloadClientOptions: ["pluginDownloadClientOptions"] as const,
+  indexers: ["indexers"] as const,
+  downloadClients: ["downloadClients"] as const,
 };
