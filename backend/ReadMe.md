@@ -17,7 +17,8 @@ The backend is built with FastAPI and follows a modular plugin architecture:
 backend/
 ├── main.py                    # FastAPI app entry point, lifespan management
 ├── plugin_manager.py          # Plugin discovery and loading
-├── requirements.txt           # Python dependencies
+├── pyproject.toml             # Dependencies & project metadata (managed by uv)
+├── uv.lock                    # Pinned dependency lockfile
 │
 ├── api/v1/                    # Versioned API routes
 │   ├── core.py               # Collections, series, books, releases
@@ -57,14 +58,14 @@ backend/
 ```bash
 cd backend
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (creates .venv from uv.lock)
+uv sync
 
 # Run development server with auto-reload
-fastapi dev
+uv run fastapi dev
 
 # Run with multiple workers (production)
-fastapi run
+uv run fastapi run
 ```
 
 ### API Documentation

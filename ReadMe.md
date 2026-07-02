@@ -57,7 +57,7 @@ Access the application at `http://localhost:9583`
 
 ### Manual Installation (Development)
 
-**Requirements**: Python 3.9+, Node.js 18+
+**Requirements**: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js 20+
 
 1. Clone the repository:
 
@@ -70,15 +70,15 @@ Access the application at `http://localhost:9583`
 
    ```bash
    cd backend
-   pip install -r requirements.txt
-   fastapi dev  # Runs on http://localhost:8000
+   uv sync                # Install dependencies into .venv
+   uv run fastapi dev     # Runs on http://localhost:8000
    ```
 
 3. Install and run frontend (separate terminal):
 
    ```bash
    cd frontend
-   npm install
+   yarn install
    yarn dev  # Runs on http://localhost:5173
    ```
 
