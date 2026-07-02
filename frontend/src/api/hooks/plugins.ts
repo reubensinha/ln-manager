@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  getPluginCapabilities,
   getPluginDownloadClients,
   getPluginIndexers,
   getPlugins,
@@ -17,6 +18,13 @@ export function usePlugins() {
   return useQuery({
     queryKey: queryKeys.plugins,
     queryFn: getPlugins,
+  });
+}
+
+export function usePluginCapabilities() {
+  return useQuery({
+    queryKey: queryKeys.pluginCapabilities,
+    queryFn: getPluginCapabilities,
   });
 }
 

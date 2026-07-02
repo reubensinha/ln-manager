@@ -15,8 +15,10 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
 
-import { toggleBookDownloaded, getPluginCapabilities, downloadRelease } from "../api/api";
 import type { Book, IndexerResult } from "../api/ApiResponse";
+import { usePluginCapabilities } from "../api/hooks/plugins";
+import { useToggleBookDownloaded } from "../api/hooks/series";
+import { useDownloadRelease } from "../api/hooks/downloadClients";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
 
 
@@ -26,50 +28,37 @@ const BLUR_NSFW: boolean = true;
 function BookInfo({ book }: { book: Book }) {
   const [showNsfw, { open: openNsfw }] = useDisclosure(false);
   const [isDownloaded, setIsDownloaded] = useState(book.downloaded);
-  const [isLoading, setIsLoading] = useState(false);
   const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
-  const [hasIndexers, setHasIndexers] = useState(false);
-  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && book.nsfw_img && !showNsfw;
+
+  const { data: capabilities } = usePluginCapabilities();
+  const hasIndexers = capabilities?.has_indexers ?? false;
+  const hasDownloadClients = capabilities?.has_download_clients ?? false;
+
+  const toggleMutation = useToggleBookDownloaded(book.series_id);
+  const downloadMutation = useDownloadRelease();
 
   useEffect(() => {
     setIsDownloaded(book.downloaded);
   }, [book.downloaded]);
 
-  useEffect(() => {
-    const fetchCapabilities = async () => {
-      const capabilities = await getPluginCapabilities();
-      setHasIndexers(capabilities.has_indexers);
-      setHasDownloadClients(capabilities.has_download_clients);
-    };
-    fetchCapabilities();
-  }, []);
-
   const handleToggleDownloaded = async () => {
-    setIsLoading(true);
     try {
-      await toggleBookDownloaded(book.id);
+      await toggleMutation.mutateAsync(book.id);
       setIsDownloaded((prev) => !prev);
-    } catch (error) {
-      console.error("Error toggling download:", error);
-    } finally {
-      setIsLoading(false);
+    } catch {
+      // Error surfaced by the central mutation toast.
     }
   };
 
-  const handleDownload = async (result: IndexerResult) => {
-    // Send both download_url and magnet link if available
-    // Let the backend/plugin decide which one to use
-    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
-    
-    const response = await downloadRelease(result.download_url, magnetLink);
-    if (response.success) {
-      console.log("Download started:", result.title);
-      // TODO: Show success notification
-    } else {
-      console.error("Download failed:", response.message);
-      // TODO: Show error notification
-    }
+  const handleDownload = (result: IndexerResult) => {
+    // Send both download_url and magnet link if available;
+    // let the backend/plugin decide which one to use.
+    const magnetLink = result.link?.startsWith("magnet:") ? result.link : undefined;
+    downloadMutation.mutate({
+      downloadUrl: result.download_url,
+      magnet: magnetLink,
+    });
   };
 
   return (
@@ -222,7 +211,7 @@ function BookInfo({ book }: { book: Book }) {
           <Group gap="sm">
             <Button
               onClick={handleToggleDownloaded}
-              loading={isLoading}
+              loading={toggleMutation.isPending}
               variant={isDownloaded ? "light" : "filled"}
             >
               {isDownloaded ? "In Library" : "Add to Library"}

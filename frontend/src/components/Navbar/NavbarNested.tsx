@@ -9,9 +9,9 @@ import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
 import classes from "./NavbarNested.module.css";
 import { pluginManifests } from "../../plugin-manifests";
-import { getPluginCapabilities } from "../../api/api";
+import { usePluginCapabilities } from "../../api/hooks/plugins";
 import { useLocation } from "react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { type NavLink } from "../../types/NavLink";
 
@@ -81,24 +81,13 @@ export function NavbarNested() {
   const location = useLocation();
   const normalize = (p: string) => (p.startsWith("/") ? p : `/${p}`);
 
-  const [capabilities, setCapabilities] = useState({
-    has_indexers: false,
-    has_download_clients: false,
-  });
-
-  useEffect(() => {
-    getPluginCapabilities()
-      .then(setCapabilities)
-      .catch((error) =>
-        console.error("Failed to load plugin capabilities:", error)
-      );
-  }, []);
+  const { data: capabilities } = usePluginCapabilities();
 
   const coreLinkGroup = useMemo(
     () =>
       buildCoreLinks(
-        capabilities.has_indexers,
-        capabilities.has_download_clients
+        capabilities?.has_indexers ?? false,
+        capabilities?.has_download_clients ?? false
       ),
     [capabilities]
   );

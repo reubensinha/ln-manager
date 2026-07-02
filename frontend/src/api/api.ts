@@ -103,14 +103,9 @@ export async function getReleases(): Promise<Release[]> {
 
 export async function toggleBookDownloaded(
   bookId: string
-): Promise<{ status: string } | null> {
-  try {
-    const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error toggling book downloaded status:", error);
-    return null;
-  }
+): Promise<{ status: string }> {
+  const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
+  return response.data;
 }
 
 export async function setBookDownloaded(
@@ -167,17 +162,8 @@ export async function getPluginCapabilities(): Promise<{
   has_download_clients: boolean;
   has_metadata_sources: boolean;
 }> {
-  try {
-    const response = await api.get(`/plugin-capabilities`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin capabilities:", error);
-    return {
-      has_indexers: false,
-      has_download_clients: false,
-      has_metadata_sources: false,
-    };
-  }
+  const response = await api.get(`/plugin-capabilities`);
+  return response.data;
 }
 
 export async function uploadPlugin(
@@ -254,23 +240,14 @@ export async function downloadRelease(
   magnet?: string,
   downloadClientId?: string
 ): Promise<{ success: boolean; message?: string }> {
-  try {
-    const response = await api.post(`/download`, null, {
-      params: {
-        download_url: downloadUrl,
-        magnet: magnet,
-        download_client_id: downloadClientId,
-      },
-    });
-    return { success: true, message: response.data.message };
-  } catch (error: unknown) {
-    console.error("Error downloading release:", error);
-    const axiosError = error as { response?: { data?: { detail?: string } } };
-    return { 
-      success: false, 
-      message: axiosError.response?.data?.detail || "Failed to download release" 
-    };
-  }
+  const response = await api.post(`/download`, null, {
+    params: {
+      download_url: downloadUrl,
+      magnet: magnet,
+      download_client_id: downloadClientId,
+    },
+  });
+  return { success: true, message: response.data.message };
 }
 export async function getPluginClients(pluginName: string): Promise<PluginCapability[]> {
   try {

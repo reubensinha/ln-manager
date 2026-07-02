@@ -11,6 +11,7 @@ import {
   getSeriesGroups,
   searchSeries,
   setBookDownloaded,
+  toggleBookDownloaded,
 } from "../api";
 import { queryKeys } from "../queryKeys";
 
@@ -107,6 +108,19 @@ export function useSetBookDownloaded(seriesId: string | undefined) {
   return useMutation({
     mutationFn: (vars: { bookId: string; downloaded: boolean }) =>
       setBookDownloaded(vars.bookId, vars.downloaded),
+    onSuccess: () => {
+      if (seriesId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.series(seriesId) });
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.seriesGroups });
+    },
+  });
+}
+
+export function useToggleBookDownloaded(seriesId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bookId: string) => toggleBookDownloaded(bookId),
     onSuccess: () => {
       if (seriesId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.series(seriesId) });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Box,
   Center,
@@ -13,7 +13,8 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { TbEyeOff, TbSearch, TbRobot } from "react-icons/tb";
-import { getPluginCapabilities, downloadRelease } from "../api/api";
+import { usePluginCapabilities } from "../api/hooks/plugins";
+import { useDownloadRelease } from "../api/hooks/downloadClients";
 import type { SeriesSourceResponse, IndexerResult } from "../api/ApiResponse";
 import type { PublishingStatus } from "../types/MetadataFieldTypes";
 import { IndexerResultTable } from "./Indexer/IndexerResultTable";
@@ -41,32 +42,22 @@ function getStatusColor(status?: PublishingStatus): string {
 function SeriesInfo({ series }: { series: SeriesSourceResponse }) {
   const [showNsfw, setShowNsfw] = useState(false);
   const [searchModalOpened, { open: openSearchModal, close: closeSearchModal }] = useDisclosure(false);
-  const [hasIndexers, setHasIndexers] = useState(false);
-  const [hasDownloadClients, setHasDownloadClients] = useState(false);
   const shouldBlur = BLUR_NSFW && series.nsfw_img && !showNsfw;
 
-  useEffect(() => {
-    const fetchCapabilities = async () => {
-      const capabilities = await getPluginCapabilities();
-      setHasIndexers(capabilities.has_indexers);
-      setHasDownloadClients(capabilities.has_download_clients);
-    };
-    fetchCapabilities();
-  }, []);
+  const { data: capabilities } = usePluginCapabilities();
+  const hasIndexers = capabilities?.has_indexers ?? false;
+  const hasDownloadClients = capabilities?.has_download_clients ?? false;
 
-  const handleDownload = async (result: IndexerResult) => {
-    // Send both download_url and magnet link if available
-    // Let the backend/plugin decide which one to use
-    const magnetLink = result.link?.startsWith('magnet:') ? result.link : undefined;
-    
-    const response = await downloadRelease(result.download_url, magnetLink);
-    if (response.success) {
-      console.log("Download started:", result.title);
-      // TODO: Show success notification
-    } else {
-      console.error("Download failed:", response.message);
-      // TODO: Show error notification
-    }
+  const downloadMutation = useDownloadRelease();
+
+  const handleDownload = (result: IndexerResult) => {
+    // Send both download_url and magnet link if available;
+    // let the backend/plugin decide which one to use.
+    const magnetLink = result.link?.startsWith("magnet:") ? result.link : undefined;
+    downloadMutation.mutate({
+      downloadUrl: result.download_url,
+      magnet: magnetLink,
+    });
   };
 
   return (
