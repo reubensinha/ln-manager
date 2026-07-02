@@ -16,4 +16,9 @@ export const queryKeys = {
   pluginDownloadClientOptions: ["pluginDownloadClientOptions"] as const,
   indexers: ["indexers"] as const,
   downloadClients: ["downloadClients"] as const,
+
+  // System slice
+  notifications: ["notifications"] as const,
+  backups: ["backups"] as const,
+  taskStatus: (id: string) => ["taskStatus", id] as const,
 };

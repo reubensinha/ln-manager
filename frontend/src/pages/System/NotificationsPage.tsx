@@ -3,29 +3,16 @@ import { useEffect, useState } from "react";
 import { Button, Divider, Group, Stack } from "@mantine/core";
 import { DataTable } from "mantine-datatable";
 
-import { getNotifications } from "../../api/api";
+import { useNotifications } from "../../api/hooks/system";
 import type { Notification } from "../../api/ApiResponse";
 
 const PAGE_SIZES = [10, 15, 20];
 
 function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { data: notifications = [], refetch } = useNotifications();
   const [pageSize, setPageSize] = useState(PAGE_SIZES[1]);
   const [page, setPage] = useState(1);
-  const [records, setRecords] = useState(notifications.slice(0, pageSize));
-
-  useEffect(() => {
-    async function fetchNotifications() {
-      const data = await getNotifications();
-
-      const sortedData = data.sort((a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      setNotifications(sortedData);
-    }
-
-    fetchNotifications();
-  }, []);
+  const [records, setRecords] = useState<Notification[]>([]);
 
   useEffect(() => {
     const from = (page - 1) * pageSize;
@@ -33,9 +20,8 @@ function NotificationsPage() {
     setRecords(notifications.slice(from, to));
   }, [page, notifications, pageSize]);
 
-  const refreshNotifications = async () => {
-    const data = await getNotifications();
-    setNotifications(data);
+  const refreshNotifications = () => {
+    refetch();
   };
 
   return (

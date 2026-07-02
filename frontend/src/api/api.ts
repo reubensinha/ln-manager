@@ -213,13 +213,8 @@ export async function deletePlugin(
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  try {
-    const response = await api.get(`/system/notifications`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return [];
-  }
+  const response = await api.get(`/system/notifications`);
+  return response.data;
 }
 
 export async function restartBackend(): Promise<{
@@ -446,13 +441,8 @@ export async function createBackupAsync(): Promise<TaskResponse> {
 }
 
 export async function listBackups(): Promise<BackupListResponse> {
-  try {
-    const response = await api.get(`/system/backups`);
-    return response.data;
-  } catch (error) {
-    console.error("Error listing backups:", error);
-    return { success: false, backups: [], count: 0 };
-  }
+  const response = await api.get(`/system/backups`);
+  return response.data;
 }
 
 export async function downloadBackup(filename: string): Promise<Blob | null> {
