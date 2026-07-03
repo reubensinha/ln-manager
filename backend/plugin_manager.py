@@ -1,6 +1,7 @@
 # TODO: Handle plugin name collisions.
 import subprocess
 import importlib
+import shutil
 import sys
 import logging
 from pathlib import Path
@@ -34,10 +35,23 @@ class PluginManager:
 
     def install_dependencies(self, dependencies: list[str]):
         ## TODO: Manage dependencies somehow.
+        if not dependencies:
+            return
         logger.info(f"Installing dependencies: {dependencies}")
+
+        # uv-managed virtualenvs don't ship pip, so `python -m pip install` fails in
+        # them. Prefer uv, which installs into the target interpreter without needing
+        # pip present; fall back to pip for environments without uv (e.g. the Docker
+        # image, which uses the system Python + pip).
+        uv_path = shutil.which("uv")
+
         for dep in dependencies:
+            if uv_path:
+                command = [uv_path, "pip", "install", "--python", sys.executable, dep]
+            else:
+                command = [sys.executable, "-m", "pip", "install", dep]
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", dep])
+                subprocess.check_call(command)
                 logger.info(f"Successfully installed dependency: {dep}")
             except Exception as e:
                 logger.error(f"Failed to install dependency '{dep}': {e}", exc_info=True)
