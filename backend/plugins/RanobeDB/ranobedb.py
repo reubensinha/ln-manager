@@ -93,31 +93,36 @@ class RanobeDBMetadata(MetadataPlugin):
     @staticmethod
     def _determine_title(lang: str, response: dict) -> str:
         """
-        Determine the appropriate title based on language preference.
+        Determine the appropriate title.
+
+        Prefers the official English title from the response's ``titles`` array when
+        RanobeDB provides one; otherwise falls back to the record's top-level fields
+        based on language.
         """
-        print(f"Determining title for lang: {lang}")
+        # Prefer an official English title when available (regardless of the record's
+        # primary language). ``titles`` is absent on some responses (e.g. search).
+        for entry in response.get("titles") or []:
+            if entry.get("lang") == "en" and entry.get("official") and entry.get("title"):
+                return entry["title"]
+
         if lang != "en":
             # For Non-English books: romaji > romaji_orig > title > title_orig > "Unknown Title"
-            title = (
+            return (
                 response.get("romaji")
                 or response.get("romaji_orig")
                 or response.get("title")
                 or response.get("title_orig")
                 or "Unknown Title"
             )
-        else:
-            # For English books: title > romaji > romaji_orig > title_orig > "Unknown Title"
-            title = (
-                response.get("title")
-                or response.get("romaji")
-                or response.get("romaji_orig")
-                or response.get("title_orig")
-                or "Unknown Title"
-            )
-            
-        print(f"Determined title: {title}")
 
-        return title
+        # For English books: title > romaji > romaji_orig > title_orig > "Unknown Title"
+        return (
+            response.get("title")
+            or response.get("romaji")
+            or response.get("romaji_orig")
+            or response.get("title_orig")
+            or "Unknown Title"
+        )
 
     @staticmethod
     def _parse_date(date_int: int | None) -> date | None:
