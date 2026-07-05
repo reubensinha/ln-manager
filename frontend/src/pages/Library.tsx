@@ -19,8 +19,9 @@ import type { SeriesGroupsResponse } from "../api/ApiResponse";
 import ItemCard from "../components/ItemCard/ItemCard";
 import {
   TriStateSelect,
+  keysWith,
   type TriStateValue,
-} from "../components/Library/TriStateSelect";
+} from "../components/common/TriStateSelect";
 import { type CardItem } from "../types/CardItems";
 
 type SortKey = "title" | "last_release" | "next_release" | "volumes" | "date_added";
@@ -58,9 +59,6 @@ function sortValue(g: SeriesGroupsResponse, key: SortKey): string | number | nul
       return g.created_at ?? null;
   }
 }
-
-const keysWith = (v: TriStateValue, state: "include" | "exclude") =>
-  Object.keys(v).filter((k) => v[k] === state);
 
 function Library() {
   const { data: seriesGroups, isLoading } = useSeriesGroups();
