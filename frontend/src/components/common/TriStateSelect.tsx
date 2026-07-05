@@ -4,6 +4,10 @@ export type TriState = "include" | "exclude";
 /** Map of option value -> filter state. Absent keys mean "not filtered". */
 export type TriStateValue = Record<string, TriState>;
 
+/** The option values currently set to a given state (include or exclude). */
+export const keysWith = (value: TriStateValue, state: TriState) =>
+  Object.keys(value).filter((k) => value[k] === state);
+
 interface TriStateSelectProps {
   label: string;
   placeholder?: string;
