@@ -1,0 +1,103 @@
+name: Release
+
+# When a pull request is merged into main: bump the version, build the Docker image,
+# publish it to GHCR, and commit the version bump back to main.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write # commit the version bump + push a tag
+  packages: write # push the image to GHCR
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Only run for PRs that were actually merged (a plain "closed" is ignored).
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: ver
+        env:
+          # Compact JSON array of the merged PR's label names, e.g. ["bug","minor"].
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+          current="$(tr -d ' \t\r\n' < VERSION)"
+          IFS='.' read -r major minor patch <<< "$current"
+          if printf '%s' "$LABELS" | grep -q '"major"'; then
+            major=$((major + 1)); minor=0; patch=0
+          elif printf '%s' "$LABELS" | grep -q '"minor"'; then
+            minor=$((minor + 1)); patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          version="${major}.${minor}.${patch}"
+          tag="alpha-v${version}"
+          {
+            echo "version=${version}"
+            echo "tag=${tag}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Next version: ${version} (image tag ${tag})"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build first: if the image build fails, the version is not bumped.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.combined
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            VERSION=${{ steps.ver.outputs.tag }}
+          tags: |
+            ghcr.io/reubensinha/ln-manager:${{ steps.ver.outputs.tag }}
+            ghcr.io/reubensinha/ln-manager:latest
+
+      - name: Sync version files, commit, and tag
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$VERSION" > VERSION
+          # backend/pyproject.toml: the first top-level `version = "..."` (the [project] one).
+          sed -i -E '0,/^version = ".*"/s//version = "'"$VERSION"'"/' backend/pyproject.toml
+          # frontend/package.json: top-level "version".
+          tmp="$(mktemp)"
+          jq --arg v "$VERSION" '.version = $v' frontend/package.json > "$tmp"
+          mv "$tmp" frontend/package.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION backend/pyproject.toml frontend/package.json
+          git commit -m "chore(release): ${TAG} [skip ci]"
+          git tag "${TAG}"
+          git push origin HEAD:main
+          git push origin "${TAG}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ steps.ver.outputs.tag }}" --title "${{ steps.ver.outputs.tag }}" --generate-notes
