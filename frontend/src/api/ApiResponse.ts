@@ -25,6 +25,11 @@ export type SeriesGroupsResponse = {
   nsfw_img?: boolean;
   monitored: boolean;
   download_status: string;
+  created_at?: string;
+  volume_count?: number;
+  last_release_date?: string | null;
+  next_release_date?: string | null;
+  languages?: string[];
 };
 
 export type Release = {

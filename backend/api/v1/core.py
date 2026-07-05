@@ -29,7 +29,7 @@ async def read_collection(
     return library_service.get_collection_by_id(session, collection_id)
 
 
-@router.get("/series-groups", response_model=list[SeriesGroupPublicSimple])
+@router.get("/series-groups", response_model=list[SeriesGroupLibraryItem])
 async def read_seriesgroup_list(*, session: Session = Depends(get_session)):
     return library_service.get_all_series_groups(session)
 
