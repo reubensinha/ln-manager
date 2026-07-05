@@ -1,7 +1,7 @@
 # Dockerfile.combined
 # 1) Build frontend
 # 1) Build frontend (kept for optional caching, but runtime will build too)
-FROM node:18-alpine AS frontend-build
+FROM node:20-alpine AS frontend-build
 WORKDIR /frontend
 
 COPY frontend/package*.json ./
