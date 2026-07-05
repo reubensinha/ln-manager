@@ -1,130 +1,90 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Text, SimpleGrid, Tabs, Group, Button, Checkbox } from "@mantine/core";
 import { TbRefresh } from "react-icons/tb";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
-  getSeriesById,
-  getSeriesGroupById,
-  addSeries,
-  setBookDownloaded,
-} from "../api/api";
-import type { Series, SeriesGroupsResponse } from "../api/ApiResponse";
+  useAddSeries,
+  useSeries,
+  useSeriesGroup,
+  useSetBookDownloaded,
+} from "../api/hooks/series";
+import { queryKeys } from "../api/queryKeys";
 import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
 import { type CardItem } from "../types/CardItems";
 
 function SeriesPage() {
   const { groupID } = useParams<{ groupID: string }>();
-  const [seriesGroup, setSeriesGroup] = useState<SeriesGroupsResponse | null>(
-    null
-  );
-  const [series, setSeries] = useState<Series | null>(null);
-  const [books, setBooks] = useState<CardItem[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: seriesGroup } = useSeriesGroup(groupID);
+
+  // Which series within the group is shown (tabs switch between sources).
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+  const activeSeriesId = selectedSeriesId ?? seriesGroup?.main_series_id;
+  const { data: series } = useSeries(activeSeriesId ?? undefined);
+
+  const addSeriesMutation = useAddSeries();
+  const setDownloadedMutation = useSetBookDownloaded(series?.id);
+
   const [isLoading, setIsLoading] = useState(false);
-  const [chapters, setChapters] = useState<CardItem[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>("books");
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedBooks, setSelectedBooks] = useState<Set<string>>(new Set());
   const selectMode = selectedBooks.size > 0;
 
+  const books: CardItem[] = useMemo(
+    () =>
+      series?.books?.map((item) => ({
+        id: item.id,
+        title: item.title,
+        img_url: item.img_url,
+        link: `/book/${item.id}`,
+        in_library: true,
+        nsfw_img: item.nsfw_img,
+        downloaded: item.downloaded,
+        monitored: item.monitored,
+      })) ?? [],
+    [series]
+  );
+
+  const chapters: CardItem[] = useMemo(
+    () =>
+      series?.chapters?.map((item) => ({
+        id: item.id,
+        title: item.title,
+        img_url: undefined,
+        link: `/chapter/${item.id}`,
+        in_library: true,
+        nsfw_img: false,
+      })) ?? [],
+    [series]
+  );
+
+  // Default to whichever tab has content once the series loads.
   useEffect(() => {
-    if (groupID) {
-      getSeriesGroupById(groupID).then((data) => {
-        setSeriesGroup(data);
-      });
+    if (books.length > 0) {
+      setActiveTab("books");
+    } else if (chapters.length > 0) {
+      setActiveTab("chapters");
     }
-  }, [groupID]);
-
-  useEffect(() => {
-    if (seriesGroup) {
-      getSeriesById(seriesGroup.main_series_id).then((data) => {
-        const booksWithLinks =
-          data?.books?.map((item) => ({
-            id: item.id,
-            title: item.title,
-            img_url: item.img_url,
-            link: `/book/${item.id}`,
-            in_library: true,
-            nsfw_img: item.nsfw_img,
-            downloaded: item.downloaded,
-            monitored: item.monitored,
-          })) ?? [];
-
-        const chaptersWithLinks =
-          data?.chapters?.map((item) => ({
-            id: item.id,
-            title: item.title,
-            img_url: undefined,
-            link: `/chapter/${item.id}`,
-            in_library: true,
-            nsfw_img: false,
-          })) ?? [];
-
-        setSeries(data);
-        setChapters(chaptersWithLinks);
-        setBooks(booksWithLinks);
-
-        if (booksWithLinks.length > 0) {
-          setActiveTab("books");
-        } else if (chaptersWithLinks.length > 0) {
-          setActiveTab("chapters");
-        }
-      });
-    }
-  }, [seriesGroup]);
-
-  const handleSeriesTabChange = (seriesId: string) => {
-    getSeriesById(seriesId).then((data) => {
-      const booksWithLinks =
-        data?.books?.map((item) => ({
-          id: item.id,
-          title: item.title,
-          img_url: item.img_url,
-          link: `/book/${item.id}`,
-          in_library: true,
-          nsfw_img: item.nsfw_img,
-        })) ?? [];
-
-      const chaptersWithLinks =
-        data?.chapters?.map((item) => ({
-          id: item.id,
-          title: item.title,
-          img_url: undefined,
-          link: `/chapter/${item.id}`,
-          in_library: true,
-          nsfw_img: false,
-        })) ?? [];
-
-      setSeries(data);
-      setBooks(booksWithLinks);
-      setChapters(chaptersWithLinks);
-
-      if (booksWithLinks.length > 0) {
-        setActiveTab("books");
-      } else if (chaptersWithLinks.length > 0) {
-        setActiveTab("chapters");
-      }
-    });
-  };
+  }, [books.length, chapters.length]);
 
   const handleRefresh = async () => {
     if (!series || !series.metadata_source) return;
 
-    setIsRefreshing(true);
-    try {
-      await addSeries(
-        series.metadata_source.id,
-        series.external_id,
-        seriesGroup?.id || ""
-      );
-      // After refreshing, re-fetch the series data
-      if (groupID) {
-        const updatedGroup = await getSeriesGroupById(groupID);
-        setSeriesGroup(updatedGroup);
-      }
-    } finally {
-      setIsRefreshing(false);
+    await addSeriesMutation.mutateAsync({
+      sourceId: series.metadata_source.id,
+      externalId: series.external_id,
+      seriesGroup: seriesGroup?.id || "",
+    });
+    // Refresh this group + the currently shown series after a metadata re-fetch.
+    if (groupID) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.seriesGroup(groupID) });
+    }
+    if (activeSeriesId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.series(activeSeriesId) });
     }
   };
 
@@ -148,62 +108,26 @@ function SeriesPage() {
     }
   };
 
-  const setDownloaded = async (bookId: string, downloaded: boolean) => {
-    try {
-      await setBookDownloaded(bookId, downloaded);
-
-      if (series) {
-        const updatedSeries = await getSeriesById(series.id);
-        if (updatedSeries) {
-          const booksWithLinks =
-            updatedSeries.books?.map((item) => ({
-              id: item.id,
-              title: item.title,
-              img_url: item.img_url,
-              link: `/book/${item.id}`,
-              in_library: true,
-              nsfw_img: item.nsfw_img,
-              downloaded: item.downloaded,
-              monitored: item.monitored,
-            })) ?? [];
-
-          setSeries(updatedSeries);
-          setBooks(booksWithLinks);
-        }
-      }
-    } catch (error) {
-      console.error("Error setting download:", error);
-    }
-  };
-
   const handleBulkAction = async (action: string) => {
-    switch (action) {
-      case "add_to_library":
-        setIsLoading(true);
-        try {
-          await Promise.all(
-            Array.from(selectedBooks).map((bookId) => setDownloaded(bookId, true))
-          );
-        } finally {
-          setIsLoading(false);
-          setSelectedBooks(new Set());
-        }
-        break;
-      case "remove_from_library":
-        setIsLoading(true);
-        try {
-          await Promise.all(
-            Array.from(selectedBooks).map((bookId) => setDownloaded(bookId, false))
-          );
-        } finally {
-          setIsLoading(false);
-          setSelectedBooks(new Set());
-        }
-        break;
-      default:
-        break;
+    const downloaded = action === "add_to_library";
+    if (action !== "add_to_library" && action !== "remove_from_library") {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedBooks).map((bookId) =>
+          setDownloadedMutation.mutateAsync({ bookId, downloaded })
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      setSelectedBooks(new Set());
     }
   };
+
+  const isRefreshing = addSeriesMutation.isPending;
 
   if (!seriesGroup) {
     return <Text>Loading series...</Text>;
@@ -217,7 +141,7 @@ function SeriesPage() {
     <>
       <Tabs
         defaultValue={seriesGroup.main_series_id}
-        onChange={(value) => handleSeriesTabChange(value ?? "")}
+        onChange={(value) => setSelectedSeriesId(value)}
       >
         <Group justify="space-between">
           <Tabs.List mb={"md"}>

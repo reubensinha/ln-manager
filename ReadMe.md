@@ -57,7 +57,7 @@ Access the application at `http://localhost:9583`
 
 ### Manual Installation (Development)
 
-**Requirements**: Python 3.9+, Node.js 18+
+**Requirements**: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js 20+
 
 1. Clone the repository:
 
@@ -70,15 +70,15 @@ Access the application at `http://localhost:9583`
 
    ```bash
    cd backend
-   pip install -r requirements.txt
-   fastapi dev  # Runs on http://localhost:8000
+   uv sync                # Install dependencies into .venv
+   uv run fastapi dev     # Runs on http://localhost:8000
    ```
 
 3. Install and run frontend (separate terminal):
 
    ```bash
    cd frontend
-   npm install
+   yarn install
    yarn dev  # Runs on http://localhost:5173
    ```
 
@@ -135,8 +135,6 @@ For development setup and contribution guidelines, see [backend/ReadMe.md](backe
 
 - Restart backend endpoint may not work properly in production
 - Search doesn't update existing series list until hard refresh (`Ctrl+Shift+R`)
-
-See [TODOs.md](TODOs.md) for full list of planned features and known issues.
 
 ## Acknowledgments
 

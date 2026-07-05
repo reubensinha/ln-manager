@@ -24,83 +24,58 @@ import FileUploadModal from "../../components/FileUploadModal";
 
 import {
   createBackupAsync,
-  listBackups,
   downloadBackup,
   deleteBackup,
   restoreBackupAsync,
-  getTaskStatus,
   clearTask,
 } from "../../api/api";
+import { useBackups, useTaskStatus } from "../../api/hooks/system";
+import { queryKeys } from "../../api/queryKeys";
+import { useQueryClient } from "@tanstack/react-query";
 import type { BackupInfo, TaskProgress } from "../../api/ApiResponse";
 
 function Status() {
-  const [backups, setBackups] = useState<BackupInfo[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: backups = [], isLoading: loading } = useBackups();
   const [restoreModalOpened, setRestoreModalOpened] = useState(false);
   const [taskProgress, setTaskProgress] = useState<TaskProgress | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
 
+  const { data: taskStatusData } = useTaskStatus(currentTaskId);
+
+  // React to background task progress (polling is driven by useTaskStatus).
   useEffect(() => {
-    fetchBackups();
-  }, []);
+    const task = taskStatusData?.task;
+    if (!task) return;
 
-  useEffect(() => {
-    if (!currentTaskId) return;
+    setTaskProgress(task);
 
-    const interval = setInterval(async () => {
-      const status = await getTaskStatus(currentTaskId);
-      if (status?.task) {
-        setTaskProgress(status.task);
-
-        if (status.task.status === "completed" || status.task.status === "failed") {
-          clearInterval(interval);
-          
-          if (status.task.status === "completed") {
-            notifications.show({
-              title: "Success",
-              message: status.task.message,
-              color: "green",
-            });
-            fetchBackups();
-          } else {
-            notifications.show({
-              title: "Error",
-              message: status.task.error || "Operation failed",
-              color: "red",
-            });
-          }
-
-          // Clean up task after a delay
-          setTimeout(async () => {
-            await clearTask(currentTaskId);
-            setCurrentTaskId(null);
-            setTaskProgress(null);
-          }, 3000);
-        }
+    if (task.status === "completed" || task.status === "failed") {
+      if (task.status === "completed") {
+        notifications.show({
+          title: "Success",
+          message: task.message,
+          color: "green",
+        });
+        queryClient.invalidateQueries({ queryKey: queryKeys.backups });
+      } else {
+        notifications.show({
+          title: "Error",
+          message: task.error || "Operation failed",
+          color: "red",
+        });
       }
-    }, 1000);
 
-    return () => clearInterval(interval);
-  }, [currentTaskId]);
-
-  const fetchBackups = async () => {
-    setLoading(true);
-    try {
-      const response = await listBackups();
-      if (response.success) {
-        setBackups(response.backups);
-      }
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: `Failed to load backups: ${error}`,
-        color: "red",
-      });
-    } finally {
-      setLoading(false);
+      const finishedTaskId = currentTaskId;
+      const timer = setTimeout(async () => {
+        if (finishedTaskId) await clearTask(finishedTaskId);
+        setCurrentTaskId(null);
+        setTaskProgress(null);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [taskStatusData, currentTaskId, queryClient]);
 
   const handleCreateBackup = async () => {
     try {
@@ -175,7 +150,7 @@ function Status() {
           message: "Backup deleted successfully",
           color: "green",
         });
-        fetchBackups();
+        queryClient.invalidateQueries({ queryKey: queryKeys.backups });
       } else {
         notifications.show({
           title: "Error",

@@ -1,7 +1,6 @@
 import { Modal, Stack, Card, Text, Group, Badge } from "@mantine/core";
-import { useEffect, useState } from "react";
-import { getPlugins, getPluginIndexers } from "../../api/api";
-import type { PluginResponse, PluginCapability } from "../../api/ApiResponse";
+import type { PluginCapability } from "../../api/ApiResponse";
+import { usePluginIndexerOptions } from "../../api/hooks/plugins";
 
 interface AddIndexerModalProps {
   opened: boolean;
@@ -9,44 +8,9 @@ interface AddIndexerModalProps {
   onSelectIndexer: (pluginName: string, pluginId: string, indexerCapability: PluginCapability) => void;
 }
 
-interface IndexerOption {
-  plugin: PluginResponse;
-  capability: PluginCapability;
-}
-
 export function AddIndexerModal({ opened, onClose, onSelectIndexer }: AddIndexerModalProps) {
-  const [indexerOptions, setIndexerOptions] = useState<IndexerOption[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (opened) {
-      loadIndexerOptions();
-    }
-  }, [opened]);
-
-  const loadIndexerOptions = async () => {
-    setLoading(true);
-    try {
-      const plugins = await getPlugins();
-      
-      const options: IndexerOption[] = [];
-      // Check each plugin for indexer capabilities
-      for (const plugin of plugins) {
-        const capabilities = await getPluginIndexers(plugin.name);
-        if (capabilities && capabilities.length > 0) {
-          for (const capability of capabilities) {
-            options.push({ plugin, capability });
-          }
-        }
-      }
-      
-      setIndexerOptions(options);
-    } catch (error) {
-      console.error("Error loading indexer options:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: indexerOptions = [], isLoading: loading } =
+    usePluginIndexerOptions(opened);
 
   return (
     <Modal

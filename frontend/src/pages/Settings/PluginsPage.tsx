@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Text,
   Button,
@@ -8,13 +8,11 @@ import {
   Modal,
   ActionIcon,
 } from "@mantine/core";
+import { useQueryClient } from "@tanstack/react-query";
 
-import {
-  getPlugins,
-  uploadPlugin,
-  deletePlugin,
-  restartBackend,
-} from "../../api/api";
+import { uploadPlugin, deletePlugin, restartBackend } from "../../api/api";
+import { usePlugins } from "../../api/hooks/plugins";
+import { queryKeys } from "../../api/queryKeys";
 import type { PluginResponse } from "../../api/ApiResponse";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
@@ -22,20 +20,12 @@ import { TbAlertCircle, TbTrash } from "react-icons/tb";
 import FileUploadModal from "../../components/FileUploadModal";
 
 function PluginsPage() {
-  const [plugins, setPlugins] = useState<PluginResponse[]>([]);
+  const queryClient = useQueryClient();
+  const { data: plugins = [] } = usePlugins();
   const [deleting, setDeleting] = useState(false);
   const [installModalOpened, setInstallModalOpened] = useState(false);
   const [restartModalOpened, setRestartModalOpened] = useState(false);
   const [restarting, setRestarting] = useState(false);
-
-  useEffect(() => {
-    const fetchPlugins = async () => {
-      const response = await getPlugins();
-      setPlugins(response);
-    };
-
-    fetchPlugins();
-  }, []);
 
   const handleRestartServers = async () => {
     setRestarting(true);
@@ -88,10 +78,9 @@ function PluginsPage() {
         });
 
         setRestartModalOpened(true);
-        
+
         // Refresh plugins list
-        const response = await getPlugins();
-        setPlugins(response);
+        queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
       } else {
         notifications.show({
           title: "Error",
@@ -122,6 +111,7 @@ function PluginsPage() {
           message: result.message || "Plugin uninstalled successfully.",
           color: "green",
         });
+        queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
       } else {
         notifications.show({
           title: "Error",

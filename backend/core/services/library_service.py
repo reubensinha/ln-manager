@@ -1,10 +1,12 @@
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import date
 
 from backend.core.database.models import (
     Collection,
     SeriesGroup,
+    SeriesGroupLibraryItem,
     Series,
     Book,
     Release,
@@ -159,10 +161,71 @@ def get_collection_by_id(session: Session, collection_id: UUID) -> Collection:
     return collection
 
 
-def get_all_series_groups(session: Session) -> list[SeriesGroup]:
-    """Get all series groups from the database."""
-    series_groups = session.exec(select(SeriesGroup)).all()
-    return list(series_groups)
+def get_all_series_groups(session: Session) -> list[SeriesGroupLibraryItem]:
+    """Get all series groups enriched with aggregates for the Library list.
+
+    Aggregates (computed here while the session is open, so no lazy-loading happens
+    during response serialization):
+    - volume_count: number of books in the group's main series (representative edition);
+    - last_release_date: most recent released volume across all editions (<= today);
+    - next_release_date: soonest upcoming volume across all editions (> today);
+    - languages: every language the series is published in (union across the group's
+      series, their books, and their releases).
+    """
+    today = date.today()
+    groups = session.exec(
+        select(SeriesGroup).options(
+            selectinload(SeriesGroup.series)
+            .selectinload(Series.books)
+            .selectinload(Book.releases)
+        )
+    ).all()
+
+    items: list[SeriesGroupLibraryItem] = []
+    for group in groups:
+        all_books = [book for series in group.series for book in series.books]
+        released = [
+            b.release_date
+            for b in all_books
+            if b.release_date and b.release_date <= today
+        ]
+        upcoming = [
+            b.release_date
+            for b in all_books
+            if b.release_date and b.release_date > today
+        ]
+
+        main_series = next(
+            (s for s in group.series if str(s.id) == str(group.main_series_id)), None
+        )
+        volume_count = len(main_series.books) if main_series else 0
+
+        # Every language the series is published in: series editions, their books,
+        # and each book's releases (release languages are the authoritative source).
+        lang_set = set()
+        for series in group.series:
+            if series.language is not None:
+                lang_set.add(series.language)
+            for book in series.books:
+                if book.language is not None:
+                    lang_set.add(book.language)
+                for release in book.releases:
+                    if release.language is not None:
+                        lang_set.add(release.language)
+        languages = sorted(
+            {(l.value if hasattr(l, "value") else str(l)) for l in lang_set}
+        )
+
+        items.append(
+            SeriesGroupLibraryItem(
+                **group.model_dump(),
+                volume_count=volume_count,
+                last_release_date=max(released) if released else None,
+                next_release_date=min(upcoming) if upcoming else None,
+                languages=languages,
+            )
+        )
+    return items
 
 
 def get_series_group_by_id(session: Session, group_id: UUID) -> SeriesGroup:

@@ -428,6 +428,7 @@ class SeriesGroupBase(SQLModel):
     nsfw_img: bool = False
     monitored: bool = True
     download_status: DownloadStatus = DownloadStatus.NONE
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
 class SeriesGroup(SeriesGroupBase, table=True):
@@ -451,6 +452,15 @@ class SeriesGroupPublicSimple(SeriesGroupBase):
     """SeriesGroup without nested series"""
 
     id: uuid.UUID
+
+
+class SeriesGroupLibraryItem(SeriesGroupPublicSimple):
+    """SeriesGroup enriched with aggregates for the Library list (filter/sort)."""
+
+    volume_count: int = 0
+    last_release_date: date | None = None
+    next_release_date: date | None = None
+    languages: list[str] = []
 
 
 class SeriesGroupPublic(SeriesGroupBase):

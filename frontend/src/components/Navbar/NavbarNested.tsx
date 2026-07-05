@@ -9,20 +9,20 @@ import { LinksGroup } from "./NavbarLinksGroup";
 // import { UserButton } from '../UserButton/UserButton';
 import classes from "./NavbarNested.module.css";
 import { pluginManifests } from "../../plugin-manifests";
-import { getPluginCapabilities } from "../../api/api";
+import { usePluginCapabilities } from "../../api/hooks/plugins";
 import { useLocation } from "react-router";
+import { useMemo } from "react";
 
 import { type NavLink } from "../../types/NavLink";
 
 // TODO: Don't use pluginManifests. Instead, parse from getPlugins API call.
 //       For routes[].path and navbarLinks[].link prepend "/plugins/{plugin.name}".
 
-const capabilities = await getPluginCapabilities();
-
-const hasIndexers = capabilities.has_indexers;
-const hasDownloadClients = capabilities.has_download_clients;
-
-const coreLinkGroup: NavLink[] = [
+function buildCoreLinks(
+  hasIndexers: boolean,
+  hasDownloadClients: boolean
+): NavLink[] {
+  return [
   { label: "Library", icon: TbGauge, link: "/" },
   { label: "Calendar", icon: TbCalendarStats, link: "/calendar" },
   ...(hasIndexers
@@ -74,11 +74,23 @@ const coreLinkGroup: NavLink[] = [
       { label: "Logs", link: "/system/logs" },
     ],
   },
-];
+  ];
+}
 
 export function NavbarNested() {
   const location = useLocation();
   const normalize = (p: string) => (p.startsWith("/") ? p : `/${p}`);
+
+  const { data: capabilities } = usePluginCapabilities();
+
+  const coreLinkGroup = useMemo(
+    () =>
+      buildCoreLinks(
+        capabilities?.has_indexers ?? false,
+        capabilities?.has_download_clients ?? false
+      ),
+    [capabilities]
+  );
 
   const pluginLinks = pluginManifests.flatMap(
     (plugin) => plugin.navLinks || []

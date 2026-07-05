@@ -34,15 +34,10 @@ export async function searchSeries(
   query: string,
   sourceId: string
 ): Promise<SearchSeriesResponse[]> {
-  try {
-    const response = await api.get(`/search`, {
-      params: { query, source_id: sourceId },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching series:", error);
-    return [];
-  }
+  const response = await api.get(`/search`, {
+    params: { query, source_id: sourceId },
+  });
+  return response.data;
 }
 
 export async function addSeries(
@@ -50,79 +45,44 @@ export async function addSeries(
   external_id: string,
   series_group: string | null = null
 ): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.post(`/add/series`, {
-      source_id: sourceId,
-      external_id,
-      series_group,
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error adding series:", error);
-    return { success: false, message: "Failed to add series" };
-  }
+  const response = await api.post(`/add/series`, {
+    source_id: sourceId,
+    external_id,
+    series_group,
+  });
+  return response.data;
 }
 
 export async function getSeriesGroups(): Promise<SeriesGroupsResponse[]> {
-  // Placeholder function to simulate fetching series groups from an API
-  try {
-    const response = await api.get(`/series-groups`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series groups:", error);
-    return [];
-  }
+  const response = await api.get(`/series-groups`);
+  return response.data;
 }
 
 export async function getSeriesGroupById(
   id: string
-): Promise<SeriesGroupsResponse | null> {
-  // Placeholder function to simulate fetching series groups from an API
-  try {
-    const response = await api.get(`/series-groups/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series group by ID:", error);
-    return null;
-  }
+): Promise<SeriesGroupsResponse> {
+  const response = await api.get(`/series-groups/${id}`);
+  return response.data;
 }
 
 export async function getSeries(): Promise<Series[]> {
-  // Placeholder function to simulate fetching series data from an API
-  try {
-    const response = await api.get(`/series`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series:", error);
-    return [];
-  }
+  const response = await api.get(`/series`);
+  return response.data;
 }
 
-export async function getSeriesById(id: string): Promise<Series | null> {
-  // Placeholder function to simulate fetching a single series by ID from an API
-  try {
-    const response = await api.get(`/series/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching series by ID:", error);
-    return null;
-  }
+export async function getSeriesById(id: string): Promise<Series> {
+  const response = await api.get(`/series/${id}`);
+  return response.data;
 }
 
 export async function getSeriesFromSource(
   sourceId: string,
   external_id: string
-): Promise<SeriesSourceResponse | null> {
-  // Placeholder function to simulate fetching series data from an external source
-  try {
-    const response = await api.get(`/series_details`, {
-      params: { source_id: sourceId, external_id },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching series:", error);
-    return null;
-  }
+): Promise<SeriesSourceResponse> {
+  const response = await api.get(`/series_details`, {
+    params: { source_id: sourceId, external_id },
+  });
+  return response.data;
 }
 
 export async function getBookByID(id: string): Promise<Book | null> {
@@ -137,38 +97,23 @@ export async function getBookByID(id: string): Promise<Book | null> {
 }
 
 export async function getReleases(): Promise<Release[]> {
-  try {
-    const response = await api.get(`/releases`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching releases:", error);
-    return [];
-  }
+  const response = await api.get(`/releases`);
+  return response.data;
 }
 
 export async function toggleBookDownloaded(
   bookId: string
-): Promise<{ status: string } | null> {
-  try {
-    const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error toggling book downloaded status:", error);
-    return null;
-  }
+): Promise<{ status: string }> {
+  const response = await api.patch(`/toggle-book-downloaded/${bookId}`);
+  return response.data;
 }
 
 export async function setBookDownloaded(
   bookId: string,
   downloaded: boolean
-): Promise<{ status: string } | null> {
-  try {
-    const response = await api.patch(`/set-book-downloaded/${bookId}`, null, { params: { downloaded } });
-    return response.data;
-  } catch (error) {
-    console.error("Error setting book downloaded status:", error);
-    return null;
-  }
+): Promise<{ status: string }> {
+  const response = await api.patch(`/set-book-downloaded/${bookId}`, null, { params: { downloaded } });
+  return response.data;
 }
 
 export async function toggleBookMonitored(
@@ -208,14 +153,8 @@ export async function toggleSeriesMonitored(
 }
 
 export async function getPlugins(): Promise<PluginResponse[]> {
-  // Placeholder function to simulate fetching plugins from an API
-  try {
-    const response = await api.get(`/plugins`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugins:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins`);
+  return response.data;
 }
 
 export async function getPluginCapabilities(): Promise<{
@@ -223,17 +162,8 @@ export async function getPluginCapabilities(): Promise<{
   has_download_clients: boolean;
   has_metadata_sources: boolean;
 }> {
-  try {
-    const response = await api.get(`/plugin-capabilities`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin capabilities:", error);
-    return {
-      has_indexers: false,
-      has_download_clients: false,
-      has_metadata_sources: false,
-    };
-  }
+  const response = await api.get(`/plugin-capabilities`);
+  return response.data;
 }
 
 export async function uploadPlugin(
@@ -269,13 +199,8 @@ export async function deletePlugin(
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  try {
-    const response = await api.get(`/system/notifications`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return [];
-  }
+  const response = await api.get(`/system/notifications`);
+  return response.data;
 }
 
 export async function restartBackend(): Promise<{
@@ -292,13 +217,8 @@ export async function restartBackend(): Promise<{
 }
 
 export async function getMetadataSources(): Promise<MetadataSource[]> {
-  try {
-    const response = await api.get(`/sources`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching metadata sources:", error);
-    return [];
-  }
+  const response = await api.get(`/sources`);
+  return response.data;
 }
 
 export async function getPluginSources(pluginName: string): Promise<PluginCapability[]> {
@@ -312,36 +232,22 @@ export async function getPluginSources(pluginName: string): Promise<PluginCapabi
 }
 
 export async function getPluginIndexers(pluginName: string): Promise<PluginCapability[]> {
-  try {
-    const response = await api.get(`/plugins/${pluginName}/indexers`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins/${pluginName}/indexers`);
+  return response.data;
 }
 export async function downloadRelease(
   downloadUrl?: string,
   magnet?: string,
   downloadClientId?: string
 ): Promise<{ success: boolean; message?: string }> {
-  try {
-    const response = await api.post(`/download`, null, {
-      params: {
-        download_url: downloadUrl,
-        magnet: magnet,
-        download_client_id: downloadClientId,
-      },
-    });
-    return { success: true, message: response.data.message };
-  } catch (error: unknown) {
-    console.error("Error downloading release:", error);
-    const axiosError = error as { response?: { data?: { detail?: string } } };
-    return { 
-      success: false, 
-      message: axiosError.response?.data?.detail || "Failed to download release" 
-    };
-  }
+  const response = await api.post(`/download`, null, {
+    params: {
+      download_url: downloadUrl,
+      magnet: magnet,
+      download_client_id: downloadClientId,
+    },
+  });
+  return { success: true, message: response.data.message };
 }
 export async function getPluginClients(pluginName: string): Promise<PluginCapability[]> {
   try {
@@ -354,50 +260,27 @@ export async function getPluginClients(pluginName: string): Promise<PluginCapabi
 }
 
 export async function getIndexers(): Promise<Indexer[]> {
-  try {
-    const response = await api.get(`/indexers`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers`);
+  return response.data;
 }
 
 export async function createIndexer(
   indexer: Omit<Indexer, "id">
-): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
-  try {
-    const response = await api.post(`/indexers`, indexer);
-    return { success: true, indexer: response.data };
-  } catch (error) {
-    console.error("Error creating indexer:", error);
-    return { success: false, message: "Failed to create indexer" };
-  }
+): Promise<Indexer> {
+  const response = await api.post(`/indexers`, indexer);
+  return response.data;
 }
 
 export async function updateIndexer(
   indexerId: string,
   indexer: Partial<Omit<Indexer, "id">>
-): Promise<{ success: boolean; indexer?: Indexer; message?: string }> {
-  try {
-    const response = await api.patch(`/indexers/${indexerId}`, indexer);
-    return { success: true, indexer: response.data };
-  } catch (error) {
-    console.error("Error updating indexer:", error);
-    return { success: false, message: "Failed to update indexer" };
-  }
+): Promise<Indexer> {
+  const response = await api.patch(`/indexers/${indexerId}`, indexer);
+  return response.data;
 }
 
-export async function deleteIndexer(
-  indexerId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/indexers/${indexerId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting indexer:", error);
-    return { success: false, message: "Failed to delete indexer" };
-  }
+export async function deleteIndexer(indexerId: string): Promise<void> {
+  await api.delete(`/indexers/${indexerId}`);
 }
 
 export async function testIndexerConnection(
@@ -482,62 +365,34 @@ export async function toggleParser(
 }
 
 export async function getDownloadClients(): Promise<DownloadClient[]> {
-  try {
-    const response = await api.get(`/download-clients`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching download clients:", error);
-    return [];
-  }
+  const response = await api.get(`/download-clients`);
+  return response.data;
 }
 
 export async function getPluginDownloadClients(
   pluginName: string
 ): Promise<PluginCapability[]> {
-  try {
-    const response = await api.get(`/plugins/${pluginName}/clients`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching plugin download clients:", error);
-    return [];
-  }
+  const response = await api.get(`/plugins/${pluginName}/clients`);
+  return response.data;
 }
 
 export async function createDownloadClient(
   client: Omit<DownloadClient, "id">
-): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
-  try {
-    const response = await api.post(`/download-clients`, client);
-    return { success: true, client: response.data };
-  } catch (error) {
-    console.error("Error creating download client:", error);
-    return { success: false, message: "Failed to create download client" };
-  }
+): Promise<DownloadClient> {
+  const response = await api.post(`/download-clients`, client);
+  return response.data;
 }
 
 export async function updateDownloadClient(
   clientId: string,
   client: Partial<Omit<DownloadClient, "id">>
-): Promise<{ success: boolean; client?: DownloadClient; message?: string }> {
-  try {
-    const response = await api.patch(`/download-clients/${clientId}`, client);
-    return { success: true, client: response.data };
-  } catch (error) {
-    console.error("Error updating download client:", error);
-    return { success: false, message: "Failed to update download client" };
-  }
+): Promise<DownloadClient> {
+  const response = await api.patch(`/download-clients/${clientId}`, client);
+  return response.data;
 }
 
-export async function deleteDownloadClient(
-  clientId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/download-clients/${clientId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting download client:", error);
-    return { success: false, message: "Failed to delete download client" };
-  }
+export async function deleteDownloadClient(clientId: string): Promise<void> {
+  await api.delete(`/download-clients/${clientId}`);
 }
 
 // Backup & Restore API
@@ -563,13 +418,8 @@ export async function createBackupAsync(): Promise<TaskResponse> {
 }
 
 export async function listBackups(): Promise<BackupListResponse> {
-  try {
-    const response = await api.get(`/system/backups`);
-    return response.data;
-  } catch (error) {
-    console.error("Error listing backups:", error);
-    return { success: false, backups: [], count: 0 };
-  }
+  const response = await api.get(`/system/backups`);
+  return response.data;
 }
 
 export async function downloadBackup(filename: string): Promise<Blob | null> {
@@ -659,24 +509,14 @@ export async function clearTask(taskId: string): Promise<{ success: boolean; mes
 }
 
 export async function searchIndexers(query: string): Promise<IndexerResult[]> {
-  try {
-    const response = await api.get(`/indexers/search`, {
-      params: { query }
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching indexers:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers/search`, {
+    params: { query }
+  });
+  return response.data;
 }
 export async function searchSpecificIndexer(indexerId: string, query: string): Promise<IndexerResult[]> {
-  try {
-    const response = await api.get(`/indexers/search/${indexerId}`, {
-      params: { query },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error searching specific indexer:", error);
-    return [];
-  }
+  const response = await api.get(`/indexers/search/${indexerId}`, {
+    params: { query },
+  });
+  return response.data;
 }

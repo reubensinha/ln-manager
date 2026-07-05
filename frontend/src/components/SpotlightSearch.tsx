@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
 import {
@@ -18,18 +18,14 @@ import {
 import { TbSearch } from "react-icons/tb";
 
 import { type Series } from "../api/ApiResponse.ts";
-import { getSeries } from "../api/api.ts";
+import { useSeriesList } from "../api/hooks/series.ts";
 
 // TODO: Use API to fetch metadata plugins to search from.
 
 function SpotlightSearch() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [series, setSeries] = useState<Series[]>([]);
-
-  useEffect(() => {
-    getSeries().then((data) => setSeries(data));
-  }, []);
+  const { data: series = [] } = useSeriesList();
 
   const pinnedActions: SpotlightActionGroupData[] = [
     {
