@@ -136,8 +136,6 @@ For development setup and contribution guidelines, see [backend/ReadMe.md](backe
 - Restart backend endpoint may not work properly in production
 - Search doesn't update existing series list until hard refresh (`Ctrl+Shift+R`)
 
-See [TODOs.md](TODOs.md) for full list of planned features and known issues.
-
 ## Acknowledgments
 
 - [RanobeDB](https://ranobedb.org/) - Light novel metadata
