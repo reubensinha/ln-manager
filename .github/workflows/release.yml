@@ -51,6 +51,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Next version: ${version} (image tag ${tag})"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # Regenerate the pinned requirements from uv.lock so the image installs exactly the
+      # versions that are locked/tested locally (avoids "works locally, breaks in Docker"
+      # dependency drift). Uses the currently-committed, consistent pyproject/uv.lock pair.
+      - name: Export pinned requirements from uv.lock
+        working-directory: backend
+        run: uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -89,9 +99,13 @@ jobs:
           jq --arg v "$VERSION" '.version = $v' frontend/package.json > "$tmp"
           mv "$tmp" frontend/package.json
 
+          # Reconcile uv.lock's project version with the bumped pyproject so the next run's
+          # `uv export --frozen` stays consistent. Also commit the freshly-exported requirements.
+          (cd backend && uv lock)
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add VERSION backend/pyproject.toml frontend/package.json
+          git add VERSION backend/pyproject.toml backend/uv.lock backend/requirements.txt frontend/package.json
           git commit -m "chore(release): ${TAG} [skip ci]"
           git tag "${TAG}"
           git push origin HEAD:main
