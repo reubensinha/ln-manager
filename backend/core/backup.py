@@ -249,14 +249,11 @@ def restore_database(
                 backup_existing = db_dir / f"lnauto.db.pre-restore.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 shutil.copy2(db_file, backup_existing)
 
-            # Clear existing data
+            # Clear existing data and rebuild the schema via migrations.
             report_progress(30, "Preparing database...")
-            from .database.database import init_db
-            from sqlmodel import SQLModel
+            from .database.database import reset_schema
 
-            # Drop and recreate all tables
-            SQLModel.metadata.drop_all(engine)
-            init_db()
+            reset_schema()
 
             # Restore database tables
             if "database.json" in zipf.namelist():

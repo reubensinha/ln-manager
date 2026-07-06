@@ -53,6 +53,21 @@ def _run_migrations():
     command.upgrade(cfg, "head")
 
 
+def reset_schema():
+    """Drop every table (including Alembic's ``alembic_version``) and rebuild via
+    migrations.
+
+    Used by the restore flow. Dropping ``alembic_version`` is essential: ``drop_all``
+    only drops SQLModel tables, so without this ``init_db()`` would see the leftover
+    version table, think it's already at head, and skip recreating the schema.
+    """
+    logger.info("Resetting database schema")
+    SQLModel.metadata.drop_all(engine)
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE IF EXISTS alembic_version")
+    init_db()
+
+
 # @contextmanager
 # def get_session():
 #     with Session(engine) as session:
