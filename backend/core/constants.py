@@ -1,4 +1,9 @@
+import os
 from pathlib import Path
+
+# Safe mode: when set (LN_SAFE_MODE=1/true/yes/on), the app boots without loading any plugins.
+# Escape hatch for when a broken plugin prevents normal startup.
+SAFE_MODE = os.getenv("LN_SAFE_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
 
 # Directory inside Docker container for persistent config and plugin data
 # __file__ is in backend/core/constants.py, so parent.parent gets us to backend/

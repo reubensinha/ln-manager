@@ -28,10 +28,31 @@ class PluginManager:
         self.plugin_dirs = plugin_dirs if plugin_dirs is not None else PLUGIN_DIRS
         self.plugins: Dict[str, BasePlugin] = {}  # name -> running instance
         self.plugin_routers: Dict[str, Any] = {}  # name -> APIRouter instance
-        
+        self.failed_plugins: Dict[str, str] = {}  # name -> load error message
+
         # Ensure user plugin directory exists
         USER_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
         logger.debug(f"PluginManager initialized with directories: {self.plugin_dirs}")
+
+    def record_load_failure(self, name: str, error: str) -> None:
+        """Record that a plugin failed to load (import/start error, or missing manifest)."""
+        self.plugins.pop(name, None)
+        self.failed_plugins[name] = error
+
+    def get_status(self, name: str, enabled: bool) -> tuple[str, str | None]:
+        """Return (status, error) for a plugin given its DB `enabled` flag.
+
+        status is one of: disabled, safe_mode, loaded, failed, missing.
+        The safe_mode case is decided by the caller (which knows the global flag) and passed
+        in via `enabled=False`-style handling; here safe_mode is not inferred.
+        """
+        if not enabled:
+            return "disabled", None
+        if name in self.plugins:
+            return "loaded", None
+        if name in self.failed_plugins:
+            return "failed", self.failed_plugins[name]
+        return "missing", None
 
     def install_dependencies(self, dependencies: list[str]):
         ## TODO: Manage dependencies somehow.
@@ -113,6 +134,7 @@ class PluginManager:
             # Instantiate the plugin
             instance = cls()
             self.plugins[plugin_name] = instance
+            self.failed_plugins.pop(plugin_name, None)
             logger.info(f"Plugin '{plugin_name}' instantiated successfully")
             
             # Call start() to initialize the plugin

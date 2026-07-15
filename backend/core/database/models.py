@@ -197,6 +197,22 @@ class PluginPublic(PluginBase):
     # series: list["SeriesPublic"] | None = None
 
 
+class PluginStatusPublic(PluginPublic):
+    """Plugin row enriched with its runtime load status for the Plugins page.
+
+    status: loaded | failed | missing | disabled | safe_mode
+    """
+
+    status: str = "loaded"
+    error: str | None = None
+
+
+class PluginUpdate(SQLModel):
+    """Partial update for a plugin (currently just enable/disable)."""
+
+    enabled: bool | None = None
+
+
 # TODO: Add relationships to MetadataSource and Indexer
 class MetadataSourceBase(SQLModel):
     name: str = Field(index=True)

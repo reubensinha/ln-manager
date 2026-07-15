@@ -9,6 +9,7 @@ from uuid import UUID
 from backend.api.v1.utils import _install_plugin_util, _uninstall_plugin_util
 from backend.core.database.models import *
 from backend.core.database.database import get_session
+from backend.core.constants import SAFE_MODE
 from backend.plugin_manager import plugin_manager
 from backend.core.plugins.metadata import MetadataPlugin
 from backend.core.services import library_service
@@ -97,10 +98,36 @@ async def toggle_series_monitor_status(
 ):
     return library_service.toggle_series_monitored(session, series_id)
 
-@router.get("/plugins", response_model=list[PluginPublic])
+def _plugin_with_status(plugin: Plugin) -> PluginStatusPublic:
+    """Merge a Plugin DB row with its runtime load status."""
+    if SAFE_MODE and plugin.enabled:
+        status, error = "safe_mode", None
+    else:
+        status, error = plugin_manager.get_status(plugin.name, plugin.enabled)
+    return PluginStatusPublic(**plugin.model_dump(), status=status, error=error)
+
+
+@router.get("/plugins", response_model=list[PluginStatusPublic])
 async def list_plugins(*, session: Session = Depends(get_session)):
     plugins = session.exec(select(Plugin)).all()
-    return plugins
+    return [_plugin_with_status(p) for p in plugins]
+
+
+@router.patch("/plugins/{plugin_id}", response_model=PluginStatusPublic)
+async def update_plugin(
+    *, plugin_id: UUID, update: PluginUpdate, session: Session = Depends(get_session)
+):
+    """Enable/disable a plugin. Takes effect on the next backend restart (plugins load at
+    startup), so it can be used to disable a plugin that is failing to load."""
+    plugin = session.get(Plugin, plugin_id)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+    if update.enabled is not None:
+        plugin.enabled = update.enabled
+    session.add(plugin)
+    session.commit()
+    session.refresh(plugin)
+    return _plugin_with_status(plugin)
 
 
 @router.get("/plugin-capabilities")
