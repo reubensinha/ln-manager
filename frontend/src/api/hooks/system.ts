@@ -1,17 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getNotifications, getTaskStatus, listBackups } from "../api";
+import type { Notification } from "../ApiResponse";
 import { queryKeys } from "../queryKeys";
+
+// Module-level (stable reference) so React Query memoizes the transform instead of
+// re-running it — and returning a new array — on every render.
+function sortByTimestampDesc(data: Notification[]): Notification[] {
+  return [...data].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+}
 
 export function useNotifications() {
   return useQuery({
     queryKey: queryKeys.notifications,
     queryFn: getNotifications,
-    select: (data) =>
-      [...data].sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      ),
+    select: sortByTimestampDesc,
   });
 }
 
