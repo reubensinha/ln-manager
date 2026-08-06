@@ -7,21 +7,42 @@ import {
   Stack,
   Modal,
   ActionIcon,
+  Badge,
+  Switch,
+  Tooltip,
+  Alert,
 } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { uploadPlugin, deletePlugin, restartBackend } from "../../api/api";
-import { usePlugins } from "../../api/hooks/plugins";
+import { usePlugins, useSetPluginEnabled } from "../../api/hooks/plugins";
 import { queryKeys } from "../../api/queryKeys";
 import type { PluginResponse } from "../../api/ApiResponse";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
-import { TbAlertCircle, TbTrash } from "react-icons/tb";
+import { TbAlertCircle, TbAlertTriangle, TbTrash } from "react-icons/tb";
 import FileUploadModal from "../../components/FileUploadModal";
+
+const STATUS_COLOR: Record<string, string> = {
+  loaded: "green",
+  failed: "red",
+  missing: "orange",
+  disabled: "gray",
+  safe_mode: "yellow",
+};
+const STATUS_LABEL: Record<string, string> = {
+  loaded: "Loaded",
+  failed: "Failed",
+  missing: "Missing",
+  disabled: "Disabled",
+  safe_mode: "Safe mode",
+};
 
 function PluginsPage() {
   const queryClient = useQueryClient();
   const { data: plugins = [] } = usePlugins();
+  const toggleEnabled = useSetPluginEnabled();
+  const safeMode = plugins.some((p) => p.status === "safe_mode");
   const [deleting, setDeleting] = useState(false);
   const [installModalOpened, setInstallModalOpened] = useState(false);
   const [restartModalOpened, setRestartModalOpened] = useState(false);
@@ -138,13 +159,60 @@ function PluginsPage() {
             Install Plugin
           </Button>
         </Group>
+
+        {safeMode && (
+          <Alert
+            color="yellow"
+            icon={<TbAlertTriangle size={18} />}
+            title="Safe mode active"
+          >
+            Plugins are not being loaded because <b>LN_SAFE_MODE</b> is set. Remove that
+            environment variable and restart the backend to load plugins again.
+          </Alert>
+        )}
+
         <Divider />
         <DataTable
           columns={[
             { accessor: "name", title: "Name" },
             { accessor: "version", title: "Version" },
+            {
+              accessor: "status",
+              title: "Status",
+              render: (plugin) => {
+                const st = plugin.status ?? "loaded";
+                const badge = (
+                  <Badge color={STATUS_COLOR[st] ?? "gray"} variant="light">
+                    {STATUS_LABEL[st] ?? st}
+                  </Badge>
+                );
+                return st === "failed" && plugin.error ? (
+                  <Tooltip label={plugin.error} multiline maw={360} withArrow>
+                    {badge}
+                  </Tooltip>
+                ) : (
+                  badge
+                );
+              },
+            },
+            {
+              accessor: "enabled",
+              title: "Enabled",
+              render: (plugin) => (
+                <Switch
+                  checked={plugin.enabled}
+                  onChange={(e) =>
+                    toggleEnabled.mutate({
+                      id: plugin.id,
+                      enabled: e.currentTarget.checked,
+                    })
+                  }
+                  disabled={toggleEnabled.isPending}
+                  aria-label={`Toggle ${plugin.name}`}
+                />
+              ),
+            },
             { accessor: "description", title: "Description" },
-            { accessor: "type", title: "Type" },
             {
               accessor: "actions",
               title: "Actions",
@@ -163,6 +231,9 @@ function PluginsPage() {
           ]}
           records={plugins}
         />
+        <Text size="xs" c="dimmed">
+          Enabling or disabling a plugin takes effect after a backend restart.
+        </Text>
       </Stack>
 
       <FileUploadModal

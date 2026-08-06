@@ -26,6 +26,7 @@ import yaml
 from backend.core.database.database import init_db, engine
 from backend.core.database.models import (
     NotificationMessage,
+    NotificationType,
     PluginBase,
     Plugin,
     PluginType,
@@ -36,7 +37,7 @@ from backend.core.database.models import (
 )
 from backend.core.notifications import notification_manager
 from backend.plugin_manager import PluginManager, plugin_manager
-from backend.core.constants import PLUGIN_DIRS, STATIC_DIR
+from backend.core.constants import PLUGIN_DIRS, STATIC_DIR, SAFE_MODE
 from backend.core.exceptions import (
     ResourceNotFoundError,
     InvalidStateError,
@@ -131,7 +132,15 @@ async def lifespan(app: FastAPI):
         )
         logger.info(f"Found {len(enabled_plugins)} enabled plugins")
 
+        if SAFE_MODE:
+            logger.warning(
+                "SAFE MODE (LN_SAFE_MODE) active: skipping all plugin loading. "
+                "Plugins will report as 'safe_mode' until you restart without it."
+            )
+
         for plugin in enabled_plugins:
+            if SAFE_MODE:
+                continue
             # Try to find the plugin in any of the plugin directories
             logger.debug(f"Searching for plugin manifest: {plugin.name}")
             manifest_file = None
@@ -151,6 +160,7 @@ async def lifespan(app: FastAPI):
                     plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
                 except Exception as e:
                     logger.error(f"Failed to load plugin '{plugin.name}': {e}", exc_info=True)
+                    plugin_manager.record_load_failure(plugin.name, str(e))
                     continue
                 
                 # Register plugin's metadata sources in database
@@ -332,6 +342,17 @@ async def lifespan(app: FastAPI):
                 logger.warning(f"Manifest not found for enabled plugin: {plugin.name}")
         
         session.commit()
+
+        # Surface plugin load failures as a persisted notification so they're visible
+        # without digging through logs.
+        if plugin_manager.failed_plugins and not SAFE_MODE:
+            failed = ", ".join(sorted(plugin_manager.failed_plugins))
+            await notification_manager.broadcast(
+                NotificationMessage(
+                    message=f"Some plugins failed to load: {failed}. See the Plugins page for details.",
+                    type=NotificationType.ERROR,
+                )
+            )
 
         logger.info("Registering scheduled jobs from plugins...")
         # Register scheduled jobs from all enabled plugins

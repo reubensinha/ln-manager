@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getPluginCapabilities,
   getPluginDownloadClients,
   getPluginIndexers,
   getPlugins,
+  setPluginEnabled,
 } from "../api";
 import type { PluginCapability, PluginResponse } from "../ApiResponse";
 import { queryKeys } from "../queryKeys";
@@ -25,6 +26,16 @@ export function usePluginCapabilities() {
   return useQuery({
     queryKey: queryKeys.pluginCapabilities,
     queryFn: getPluginCapabilities,
+  });
+}
+
+export function useSetPluginEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { id: string; enabled: boolean }) =>
+      setPluginEnabled(vars.id, vars.enabled),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins }),
   });
 }
 

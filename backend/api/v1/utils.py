@@ -1,6 +1,7 @@
 from fastapi import HTTPException, UploadFile
 from sqlmodel import Session
 
+from typing import Any
 import yaml
 import zipfile
 import shutil
@@ -25,7 +26,7 @@ from backend.core.database.models import Plugin
 #                        |-- <plugin_name>/
 
 
-async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, str]:
+async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, Any]:
     # Validate .lna structure and manifest.yaml
     # Manage dependencies
     # Extract plugin.lna files in appropriate directories
@@ -146,12 +147,12 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
                 )
 
     return {
-        "status": "success",
+        "success": True,
         "message": f"Plugin '{plugin_name}' version {manifest['version']} installed successfully.",
     }
 
 
-async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str, str]:
+async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str, Any]:
     plugin = None
 
     plugin = session.get(Plugin, plugin_id)
@@ -203,6 +204,6 @@ async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str,
         )
 
     return {
-        "status": "success",
+        "success": True,
         "message": f"Plugin '{plugin_name}' uninstalled successfully.",
     }

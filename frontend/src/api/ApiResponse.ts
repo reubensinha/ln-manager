@@ -149,6 +149,8 @@ export type PluginResponse = {
   author: string;
   description?: string;
   enabled: boolean;
+  status?: string; // loaded | failed | missing | disabled | safe_mode
+  error?: string | null;
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
 };

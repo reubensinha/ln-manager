@@ -198,6 +198,14 @@ export async function deletePlugin(
   }
 }
 
+export async function setPluginEnabled(
+  pluginId: string,
+  enabled: boolean
+): Promise<PluginResponse> {
+  const response = await api.patch(`/plugins/${pluginId}`, { enabled });
+  return response.data;
+}
+
 export async function getNotifications(): Promise<Notification[]> {
   const response = await api.get(`/system/notifications`);
   return response.data;
