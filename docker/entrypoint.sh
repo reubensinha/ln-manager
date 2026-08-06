@@ -14,7 +14,8 @@ if [ -d /app/frontend ]; then
     echo "[entrypoint] Installing frontend dependencies"
     npm install --legacy-peer-deps --silent
   else
-    echo "[entrypoint] node_modules exists, skipping npm install"
+    echo "[entrypoint] node_modules exists, checking for updates"
+    npm install --legacy-peer-deps --silent
   fi
 
   echo "[entrypoint] Building frontend"
