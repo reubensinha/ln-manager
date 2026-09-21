@@ -15,7 +15,9 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+from fastapi import APIRouter
+from starlette.routing import BaseRoute
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -370,15 +372,79 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting scheduler...")
     scheduler.start()
-    logger.info("Application startup complete")
-    
-    yield
-    
-    # Perform shutdown tasks
-    logger.info("Application shutting down...")
-    scheduler.shutdown()
-    logger.info("Scheduler stopped")
+
+    _register_plugin_http(app)
+
+    async with AsyncExitStack() as plugin_stack:
+        for plugin_name, plugin_instance in list(plugin_manager.plugins.items()):
+            try:
+                await plugin_stack.enter_async_context(plugin_instance.lifespan())
+            except Exception as e:
+                logger.error(f"Plugin '{plugin_name}' failed during async startup: {e}", exc_info=True)
+                _unregister_plugin_http(app, plugin_name)
+                plugin_manager.unload_plugin(plugin_name)
+                plugin_manager.record_load_failure(plugin_name, f"Async startup failed: {e}")
+                await notification_manager.broadcast(
+                    NotificationMessage(
+                        message=f"Plugin '{plugin_name}' failed to start. See the Plugins page for details.",
+                        type=NotificationType.ERROR,
+                    )
+                )
+
+        logger.info("Application startup complete")
+
+        yield
+
+        # Perform shutdown tasks
+        logger.info("Application shutting down...")
+        scheduler.shutdown()
+        logger.info("Scheduler stopped")
+
+    plugin_manager.shutdown_all_plugins()
     logger.info("Application shutdown complete")
+
+
+_plugin_http_registrations: dict[str, list[BaseRoute]] = {}
+
+
+def _spa_route_index(app: FastAPI) -> int:
+    for i, route in enumerate(app.router.routes):
+        if getattr(route, "endpoint", None) is root_index:
+            return i
+    return len(app.router.routes)
+
+
+def _register_plugin_http(app: FastAPI) -> None:
+    """Splice plugin routers in ahead of the SPA catch-all.
+
+    Plugins load inside the lifespan, after the catch-all is already registered, and
+    Starlette takes the first full match — so anything appended later would be
+    shadowed for GET requests. Inserting before the SPA routes keeps every method
+    reachable.
+    """
+    insert_at = _spa_route_index(app)
+    for plugin_name, router in plugin_manager.get_plugin_routers().items():
+        before = len(app.router.routes)
+        app.include_router(
+            router,
+            prefix=f"/api/plugins/{plugin_name}",
+            tags=[f"plugin:{plugin_name}"],
+        )
+        added: list[BaseRoute] = app.router.routes[before:]
+        del app.router.routes[before:]
+
+        if added:
+            app.router.routes[insert_at:insert_at] = added
+            insert_at += len(added)
+            _plugin_http_registrations[plugin_name] = added
+
+
+def _unregister_plugin_http(app: FastAPI, plugin_name: str) -> None:
+    for route in _plugin_http_registrations.pop(plugin_name, []):
+        try:
+            app.router.routes.remove(route)
+        except ValueError:
+            pass
 
 
 app = FastAPI(
@@ -509,13 +575,8 @@ app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
 app.include_router(parsers.router, prefix="/api/v1", tags=["parsers"])
 app.include_router(download_clients.router, prefix="/api/v1", tags=["download_clients"])
 
-# Include plugin-registered API routers
-for plugin_name, router in plugin_manager.get_plugin_routers().items():
-    app.include_router(
-        router,
-        prefix=f"/api/v1/plugins/{plugin_name}",
-        tags=[f"plugin:{plugin_name}"]
-    )
+# Plugin routers and root-level routes are registered inside the lifespan
+# (see _register_plugin_http) because plugins are only loaded there.
 
 
 @app.get("/", include_in_schema=False)

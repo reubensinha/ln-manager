@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 import logging
@@ -121,25 +123,46 @@ class BasePlugin(ABC):
         
         Plugins can override this method to register custom API routes.
         The router will be automatically included in the FastAPI app at
-        /api/v1/plugins/{plugin_name}/
-        
+        /api/plugins/{plugin_name}/ (outside the versioned core API, since
+        these routes are owned by the plugin). Every HTTP method reaches them.
+
+        A raw ASGI app (e.g. a non-REST protocol handler) can be attached with
+        router.add_route("/path", asgi_app); note that such a handler sees the
+        full request path including the prefix.
+
         Returns:
             fastapi.APIRouter instance or None
-            
+
         Example:
             from fastapi import APIRouter
-            
+
             def get_api_router(self):
                 router = APIRouter()
-                
+
                 @router.get("/status")
                 async def get_status():
                     return {"status": "running"}
-                
+
                 return router
         """
         return None
-    
+
+    @asynccontextmanager
+    async def lifespan(self) -> AsyncGenerator[None, None]:
+        """Async setup/teardown that must run inside the application's event loop.
+
+        Entered after start() once the app is about to serve requests, and exited
+        on shutdown before stop(). Override when the plugin owns resources that
+        are themselves async context managers (background tasks, session managers).
+
+        Example:
+            @asynccontextmanager
+            async def lifespan(self):
+                async with self.session_manager.run():
+                    yield
+        """
+        yield
+
     def create_metadata_source(self, config: dict[str, Any]):
         """Factory method to create a configured metadata source instance.
         
