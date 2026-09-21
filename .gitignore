@@ -257,3 +257,4 @@ backend/run_dev.sh
 plugin_toolkit
 new_frontend_template_mockup/
 docker/test
+Context/
