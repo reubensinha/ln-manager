@@ -275,9 +275,21 @@ See `backend/plugins/RanobeDB/` for a complete, working example:
 
 1. **Discovery**: `plugin_manager` scans `plugins/` directory on startup
 2. **Loading**: Reads `manifest.yaml`, installs dependencies (if listed)
-3. **Instantiation**: Imports and creates plugin instance
-4. **Registration**: Adds to database and makes available via API
-5. **Usage**: Called by API endpoints and services
+3. **Instantiation**: Imports and creates plugin instance, calls `start()`
+4. **Registration**: Adds to database and makes available via API; HTTP routes are spliced into the app ahead of the SPA catch-all
+5. **Async startup**: each plugin's `lifespan()` is entered inside the app's event loop
+6. **Usage**: Called by API endpoints and services
+7. **Shutdown**: `lifespan()` exits, then `stop()` is called
+
+### Optional hooks on `BasePlugin`
+
+| Hook | Use it for |
+| --- | --- |
+| `get_api_router() -> APIRouter` | HTTP endpoints, auto-prefixed with `/api/plugins/{name}` (outside the versioned core API — plugins own these). REST routes show in `/docs`; a raw ASGI app for another protocol can be attached with `router.add_route("/path", asgi_app)` and receives the full prefixed path |
+| `lifespan()` (async context manager) | Setup that must run in the event loop — background tasks, session managers. Runs after `start()`; a failure here marks the plugin `failed` and removes its routes without affecting other plugins |
+| `get_scheduler_jobs() -> list[dict]` | APScheduler jobs |
+
+See `plugins/MCPServer/` for a plugin that uses the first two.
 
 **Note on Dependencies**: The project currently does not have a proper dependency manager for plugins. While you can list dependencies in `manifest.yaml`, there is no isolation between plugin environments, and dependency conflicts may occur. Manual dependency management is required.
 

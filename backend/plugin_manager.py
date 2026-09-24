@@ -37,6 +37,7 @@ class PluginManager:
     def record_load_failure(self, name: str, error: str) -> None:
         """Record that a plugin failed to load (import/start error, or missing manifest)."""
         self.plugins.pop(name, None)
+        self.plugin_routers.pop(name, None)
         self.failed_plugins[name] = error
 
     def get_status(self, name: str, enabled: bool) -> tuple[str, str | None]:
@@ -149,7 +150,7 @@ class PluginManager:
                     logger.info(f"Registered API router for plugin '{plugin_name}'")
             except Exception as e:
                 logger.error(f"Error registering API router for '{plugin_name}': {e}", exc_info=True)
-            
+
             return instance
             
         except Exception as e:
