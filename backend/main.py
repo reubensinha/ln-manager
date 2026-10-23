@@ -159,7 +159,9 @@ async def lifespan(app: FastAPI):
                 logger.info(f"Loading plugin: {plugin.name}")
                 manifest = yaml.safe_load(manifest_file.open())
                 try:
-                    plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                    plugin_instance = plugin_manager.load_plugin_from_manifest(
+                        plugin.name, manifest, config=plugin.config
+                    )
                 except Exception as e:
                     logger.error(f"Failed to load plugin '{plugin.name}': {e}", exc_info=True)
                     plugin_manager.record_load_failure(plugin.name, str(e))

@@ -182,6 +182,11 @@ class Plugin(PluginBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
 
+    # Plugin-wide user settings. Deliberately declared here and not on PluginBase:
+    # the *Public models inherit PluginBase, and settings may contain secrets that
+    # must never be returned by the plugin list endpoints.
+    config: dict | None = Field(default=None, sa_column=Column(JSON))
+
     metadata_sources: list["MetadataSource"] = Relationship(back_populates="plugin")
     indexers: list["Indexer"] = Relationship(back_populates="plugin")
     download_clients: list["DownloadClient"] = Relationship(back_populates="plugin")
@@ -205,12 +210,30 @@ class PluginStatusPublic(PluginPublic):
 
     status: str = "loaded"
     error: str | None = None
+    has_settings: bool = False
 
 
 class PluginUpdate(SQLModel):
     """Partial update for a plugin (currently just enable/disable)."""
 
     enabled: bool | None = None
+
+
+class PluginSettingsPublic(SQLModel):
+    """A plugin's settings schema plus its current values.
+
+    Values for fields declared `secret` are never returned; they come back as
+    SECRET_SENTINEL when a value is stored and None when it is not.
+    """
+
+    settings_schema: dict = Field(default_factory=dict)
+    values: dict = Field(default_factory=dict)
+
+
+class PluginSettingsUpdate(SQLModel):
+    """New settings values. A secret left as SECRET_SENTINEL keeps its stored value."""
+
+    values: dict = Field(default_factory=dict)
 
 
 # TODO: Add relationships to MetadataSource and Indexer

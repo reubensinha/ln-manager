@@ -12,6 +12,7 @@ export const queryKeys = {
 
   // Plugins / indexers / download clients (settings slice)
   plugins: ["plugins"] as const,
+  pluginSettings: (id: string) => ["plugins", id, "settings"] as const,
   pluginIndexerOptions: ["pluginIndexerOptions"] as const,
   pluginDownloadClientOptions: ["pluginDownloadClientOptions"] as const,
   indexers: ["indexers"] as const,

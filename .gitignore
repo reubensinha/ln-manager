@@ -247,6 +247,7 @@ test_img
 lnauto.db
 frontend/src/plugins
 backend/plugins/RanobeDB/data
+backend/plugins/MCPServer
 TODOs.md
 docker_commands.md
 docker-push.sh
@@ -258,3 +259,5 @@ plugin_toolkit
 new_frontend_template_mockup/
 docker/test
 Context/
+DESIGN_INSPOs.md
+backend/plugins/Reviews

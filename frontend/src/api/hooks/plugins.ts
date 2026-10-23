@@ -4,8 +4,10 @@ import {
   getPluginCapabilities,
   getPluginDownloadClients,
   getPluginIndexers,
+  getPluginSettings,
   getPlugins,
   setPluginEnabled,
+  updatePluginSettings,
 } from "../api";
 import type { PluginCapability, PluginResponse } from "../ApiResponse";
 import { queryKeys } from "../queryKeys";
@@ -36,6 +38,26 @@ export function useSetPluginEnabled() {
       setPluginEnabled(vars.id, vars.enabled),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.plugins }),
+  });
+}
+
+export function usePluginSettings(pluginId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.pluginSettings(pluginId ?? ""),
+    queryFn: () => getPluginSettings(pluginId as string),
+    enabled: !!pluginId,
+  });
+}
+
+export function useUpdatePluginSettings(pluginId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (values: Record<string, unknown>) =>
+      updatePluginSettings(pluginId, values),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.pluginSettings(pluginId), data);
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
+    },
   });
 }
 

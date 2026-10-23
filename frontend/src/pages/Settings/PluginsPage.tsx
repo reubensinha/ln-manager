@@ -20,8 +20,9 @@ import { queryKeys } from "../../api/queryKeys";
 import type { PluginResponse } from "../../api/ApiResponse";
 import { DataTable } from "mantine-datatable";
 import { notifications } from "@mantine/notifications";
-import { TbAlertCircle, TbAlertTriangle, TbTrash } from "react-icons/tb";
+import { TbAlertCircle, TbAlertTriangle, TbSettings, TbTrash } from "react-icons/tb";
 import FileUploadModal from "../../components/FileUploadModal";
+import PluginSettingsModal from "../../components/Plugin/PluginSettingsModal";
 
 const STATUS_COLOR: Record<string, string> = {
   loaded: "green",
@@ -47,6 +48,7 @@ function PluginsPage() {
   const [installModalOpened, setInstallModalOpened] = useState(false);
   const [restartModalOpened, setRestartModalOpened] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [settingsPlugin, setSettingsPlugin] = useState<PluginResponse | null>(null);
 
   const handleRestartServers = async () => {
     setRestarting(true);
@@ -218,14 +220,27 @@ function PluginsPage() {
               title: "Actions",
               textAlign: "right",
               render: (plugin) => (
-                <ActionIcon
-                  color="red"
-                  variant="subtle"
-                  onClick={() => handleUninstallPlugin(plugin)}
-                  loading={deleting}
-                >
-                  <TbTrash size={16} />
-                </ActionIcon>
+                <Group gap="xs" justify="flex-end" wrap="nowrap">
+                  {plugin.has_settings && (
+                    <Tooltip label="Settings">
+                      <ActionIcon
+                        variant="subtle"
+                        onClick={() => setSettingsPlugin(plugin)}
+                        aria-label={`Configure ${plugin.name}`}
+                      >
+                        <TbSettings size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                  <ActionIcon
+                    color="red"
+                    variant="subtle"
+                    onClick={() => handleUninstallPlugin(plugin)}
+                    loading={deleting}
+                  >
+                    <TbTrash size={16} />
+                  </ActionIcon>
+                </Group>
               ),
             },
           ]}
@@ -235,6 +250,14 @@ function PluginsPage() {
           Enabling or disabling a plugin takes effect after a backend restart.
         </Text>
       </Stack>
+
+      {settingsPlugin && (
+        <PluginSettingsModal
+          plugin={settingsPlugin}
+          opened={!!settingsPlugin}
+          onClose={() => setSettingsPlugin(null)}
+        />
+      )}
 
       <FileUploadModal
         opened={installModalOpened}

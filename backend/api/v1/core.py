@@ -12,6 +12,7 @@ from backend.core.database.database import get_session
 from backend.core.constants import SAFE_MODE
 from backend.plugin_manager import plugin_manager
 from backend.core.plugins.metadata import MetadataPlugin
+from backend.core.plugins.settings import defaults_for, mask_secrets, validate_and_merge
 from backend.core.services import library_service
 from backend.core.exceptions import ResourceNotFoundError, InvalidStateError, ValidationError
 
@@ -104,7 +105,24 @@ def _plugin_with_status(plugin: Plugin) -> PluginStatusPublic:
         status, error = "safe_mode", None
     else:
         status, error = plugin_manager.get_status(plugin.name, plugin.enabled)
-    return PluginStatusPublic(**plugin.model_dump(), status=status, error=error)
+    # config is excluded explicitly: it can hold secrets and must not be listed.
+    return PluginStatusPublic(
+        **plugin.model_dump(exclude={"config"}),
+        status=status,
+        error=error,
+        has_settings=bool(_settings_schema_for(plugin.name)),
+    )
+
+
+def _settings_schema_for(plugin_name: str) -> dict[str, Any]:
+    """A loaded plugin's settings schema, or {} when it isn't loaded or declares none."""
+    instance = plugin_manager.get_plugin(plugin_name)
+    if instance is None:
+        return {}
+    try:
+        return instance.get_settings_schema() or {}
+    except Exception:
+        return {}
 
 
 @router.get("/plugins", response_model=list[PluginStatusPublic])
@@ -128,6 +146,50 @@ async def update_plugin(
     session.commit()
     session.refresh(plugin)
     return _plugin_with_status(plugin)
+
+
+@router.get("/plugins/{plugin_id}/settings", response_model=PluginSettingsPublic)
+async def get_plugin_settings(
+    *, plugin_id: UUID, session: Session = Depends(get_session)
+):
+    """Return a plugin's settings schema and current values (secrets masked)."""
+    plugin = session.get(Plugin, plugin_id)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+
+    schema = _settings_schema_for(plugin.name)
+    values = {**defaults_for(schema), **(plugin.config or {})}
+    return PluginSettingsPublic(settings_schema=schema, values=mask_secrets(schema, values))
+
+
+@router.put("/plugins/{plugin_id}/settings", response_model=PluginSettingsPublic)
+async def update_plugin_settings(
+    *,
+    plugin_id: UUID,
+    update: PluginSettingsUpdate,
+    session: Session = Depends(get_session),
+):
+    """Save a plugin's settings and apply them to the running instance."""
+    plugin = session.get(Plugin, plugin_id)
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+
+    schema = _settings_schema_for(plugin.name)
+    if not schema:
+        raise HTTPException(
+            status_code=400, detail=f"Plugin '{plugin.name}' has no configurable settings"
+        )
+
+    merged = validate_and_merge(schema, update.values, plugin.config or {})
+
+    plugin.config = merged
+    session.add(plugin)
+    session.commit()
+    session.refresh(plugin)
+
+    plugin_manager.apply_plugin_config(plugin.name, merged)
+
+    return PluginSettingsPublic(settings_schema=schema, values=mask_secrets(schema, merged))
 
 
 @router.get("/plugin-capabilities")

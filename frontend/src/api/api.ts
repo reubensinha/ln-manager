@@ -10,6 +10,7 @@ import type {
   Notification,
   MetadataSource,
   PluginCapability,
+  PluginSettingsResponse,
   BackupResponse,
   BackupListResponse,
   TaskResponse,
@@ -203,6 +204,21 @@ export async function setPluginEnabled(
   enabled: boolean
 ): Promise<PluginResponse> {
   const response = await api.patch(`/plugins/${pluginId}`, { enabled });
+  return response.data;
+}
+
+export async function getPluginSettings(
+  pluginId: string
+): Promise<PluginSettingsResponse> {
+  const response = await api.get(`/plugins/${pluginId}/settings`);
+  return response.data;
+}
+
+export async function updatePluginSettings(
+  pluginId: string,
+  values: Record<string, unknown>
+): Promise<PluginSettingsResponse> {
+  const response = await api.put(`/plugins/${pluginId}/settings`, { values });
   return response.data;
 }
 

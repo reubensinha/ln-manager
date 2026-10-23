@@ -21,10 +21,14 @@ class BasePlugin(ABC):
     enabled: bool = True  # Default to enabled
 
     def __init__(self, **kwargs: Any):
+        # Plugin-wide user settings; the plugin manager fills this from the DB after
+        # construction and before start(). See get_settings_schema().
+        self.config: dict[str, Any] = {}
+
         # Allow plugins to receive config from DB or user settings
         for k, v in kwargs.items():
             setattr(self, k, v)
-        
+
         # Set up plugin-specific logger
         self.logger = get_plugin_logger(self.name)
         self.logger.info(f"Initializing plugin: {self.name} v{self.version}")
@@ -118,6 +122,39 @@ class BasePlugin(ABC):
         """
         return []
     
+    def get_settings_schema(self) -> dict[str, Any]:
+        """Return a schema describing this plugin's user-configurable settings.
+
+        Returning a non-empty schema is what makes the Settings > Plugins page offer a
+        configuration form; the form is generated from this schema, so a backend-only
+        plugin needs no frontend code. Current values are available as `self.config`,
+        with any `default` from this schema already applied.
+
+        Field options: `type` ("string" | "boolean" | "number"), `required`, `default`,
+        `description`, `label`, `enum` (renders a select), and `secret` (renders a
+        password input; the value is never sent back to the browser).
+
+        Note: settings are applied to the live plugin instance, but values that change
+        what get_available_sources/indexers/clients/parsers() advertise still need a
+        restart, because those are only read during application startup.
+
+        Example:
+            def get_settings_schema(self):
+                return {
+                    "api_key": {"type": "string", "secret": True, "required": True,
+                                "description": "API key for the service"},
+                    "max_items": {"type": "number", "default": 5},
+                }
+        """
+        return {}
+
+    def on_settings_changed(self, config: dict[str, Any]) -> None:
+        """Called after settings are saved, with the new values already set on self.config.
+
+        Override to react without a restart (e.g. rebuild a client). Default: no-op.
+        """
+        return None
+
     def get_api_router(self) -> Optional[APIRouter]:
         """Return an APIRouter for this plugin's custom endpoints.
         

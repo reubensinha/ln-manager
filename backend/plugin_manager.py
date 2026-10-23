@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Type, Any
 
 from backend.core.plugins.base import BasePlugin
+from backend.core.plugins.settings import defaults_for
 from backend.core.constants import BUNDLED_PLUGIN_DIR, USER_PLUGIN_DIR, PLUGIN_DIRS
 from backend.core.logging_config import get_logger
 
@@ -89,10 +90,14 @@ class PluginManager:
         logger.warning(f"Plugin folder '{folder_name}' not found in any plugin directory")
         return None
     
-    def load_plugin_from_manifest(self, folder_name: str, manifest: dict):
+    def load_plugin_from_manifest(self, folder_name: str, manifest: dict, config: dict | None = None):
         """Load and instantiate a plugin from its manifest.
-        
+
         The plugin instance is kept running for the lifetime of the application.
+
+        Args:
+            config: stored plugin settings, applied before start() so the plugin can use
+                them during startup.
         """
         plugin_name = manifest.get("name", folder_name)
         logger.info(f"Loading plugin: {plugin_name}")
@@ -132,8 +137,11 @@ class PluginManager:
             module = importlib.import_module(module_path)
             cls: Type[BasePlugin] = getattr(module, class_name)
             
-            # Instantiate the plugin
+            # Instantiate the plugin, then hand it its stored settings before start().
+            # Assigning rather than passing a kwarg keeps plugins whose __init__ takes
+            # no **kwargs working.
             instance = cls()
+            instance.config = self._config_with_defaults(instance, config)
             self.plugins[plugin_name] = instance
             self.failed_plugins.pop(plugin_name, None)
             logger.info(f"Plugin '{plugin_name}' instantiated successfully")
@@ -190,6 +198,37 @@ class PluginManager:
             self.unload_plugin(name)
         logger.info("All plugins shut down")
     
+    @staticmethod
+    def _config_with_defaults(plugin: BasePlugin, config: dict | None) -> dict:
+        """Stored settings layered over the schema's defaults, so a plugin can read
+        self.config without re-implementing its own fallbacks."""
+        try:
+            schema = plugin.get_settings_schema() or {}
+        except Exception as e:
+            logger.error(
+                f"Plugin '{plugin.name}' failed to report its settings schema: {e}",
+                exc_info=True,
+            )
+            schema = {}
+        return {**defaults_for(schema), **(config or {})}
+
+    def apply_plugin_config(self, name: str, config: dict) -> None:
+        """Push saved settings onto a running plugin and notify it.
+
+        No-op when the plugin isn't loaded (disabled, failed, or safe mode) — the values
+        are still persisted and will be applied the next time it loads.
+        """
+        plugin = self.plugins.get(name)
+        if plugin is None:
+            logger.debug(f"Settings saved for '{name}', which is not currently loaded")
+            return
+        plugin.config = self._config_with_defaults(plugin, config)
+        try:
+            plugin.on_settings_changed(plugin.config)
+        except Exception as e:
+            logger.error(f"Plugin '{name}' failed to apply new settings: {e}", exc_info=True)
+            raise
+
     def get_plugin(self, name: str) -> BasePlugin | None:
         """Get a running plugin instance by name.
         

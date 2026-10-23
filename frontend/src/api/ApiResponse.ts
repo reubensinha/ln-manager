@@ -151,6 +151,7 @@ export type PluginResponse = {
   enabled: boolean;
   status?: string; // loaded | failed | missing | disabled | safe_mode
   error?: string | null;
+  has_settings?: boolean;
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
 };
@@ -173,6 +174,25 @@ export type PluginCapability = {
   description?: string;
   config_schema?: Record<string, unknown>;
 };
+
+/** One field in a plugin's settings schema (see BasePlugin.get_settings_schema). */
+export type PluginSettingField = {
+  type?: "string" | "number" | "boolean";
+  label?: string;
+  description?: string;
+  required?: boolean;
+  secret?: boolean;
+  enum?: (string | number)[];
+  default?: unknown;
+};
+
+export type PluginSettingsResponse = {
+  settings_schema: Record<string, PluginSettingField>;
+  values: Record<string, unknown>;
+};
+
+/** Sent back for a secret the user didn't change; the backend keeps the stored value. */
+export const SECRET_SENTINEL = "__unchanged__";
 
 
 export type Notification = {

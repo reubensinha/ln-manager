@@ -287,9 +287,45 @@ See `backend/plugins/RanobeDB/` for a complete, working example:
 | --- | --- |
 | `get_api_router() -> APIRouter` | HTTP endpoints, auto-prefixed with `/api/plugins/{name}` (outside the versioned core API — plugins own these). REST routes show in `/docs`; a raw ASGI app for another protocol can be attached with `router.add_route("/path", asgi_app)` and receives the full prefixed path |
 | `lifespan()` (async context manager) | Setup that must run in the event loop — background tasks, session managers. Runs after `start()`; a failure here marks the plugin `failed` and removes its routes without affecting other plugins |
+| `get_settings_schema() -> dict` | User-configurable settings. Returning a non-empty schema makes Settings → Plugins show a form generated from it, so a backend-only plugin needs no frontend code. Values arrive as `self.config` (schema `default`s already applied) |
+| `on_settings_changed(config)` | React to saved settings without a restart |
 | `get_scheduler_jobs() -> list[dict]` | APScheduler jobs |
 
-See `plugins/MCPServer/` for a plugin that uses the first two.
+See `plugins/MCPServer/` for routes + lifespan, and `plugins/Torznab/` for settings.
+
+#### Settings schema
+
+Each field maps a name to its spec: `type` (`"string"`, `"number"`, `"boolean"`), `label`,
+`description`, `required`, `default`, `enum` (renders a select) and `secret` (renders a
+password input; the stored value is never sent to the browser — reads return the sentinel
+`__unchanged__`, and writing that sentinel back keeps it).
+
+```python
+def get_settings_schema(self):
+    return {
+        "api_key": {"type": "string", "secret": True, "required": True},
+        "max_items": {"type": "number", "default": 5},
+    }
+```
+
+Values are saved via `GET`/`PUT /api/v1/plugins/{plugin_id}/settings` and pushed onto the
+running instance. Caveat: settings that change what `get_available_*()` advertises still
+need a restart, because those are only read during startup.
+
+#### Contributing UI to existing pages
+
+A plugin's frontend manifest (`frontend/src/plugins/<Name>/manifest.tsx`) can register
+components at the extension points declared in `frontend/src/extensions/extensionPoints.ts`
+(currently two slots on the Series page). Only plugins the backend reports as `loaded`
+render, and each contribution is wrapped in its own error boundary. Note that frontend
+manifests are bundled at build time, so this works for in-tree plugins; `.lna`-installed
+plugins cannot contribute UI until dynamic frontend loading exists.
+
+```tsx
+extensions: [
+  { point: extensionPoints.seriesDetailBottom, id: "reviews", component: ReviewsSection },
+]
+```
 
 **Note on Dependencies**: The project currently does not have a proper dependency manager for plugins. While you can list dependencies in `manifest.yaml`, there is no isolation between plugin environments, and dependency conflicts may occur. Manual dependency management is required.
 
