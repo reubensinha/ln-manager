@@ -16,14 +16,14 @@ TODOs.md
 docker_commands.md
 
 # Python
-__pycache__/
-*.py[cod]
+**/__pycache__
+**/*.py[cod]
 *$py.class
 *.so
 .Python
 build/
 develop-eggs/
-dist/
+**/dist
 downloads/
 eggs/
 .eggs/
@@ -45,13 +45,13 @@ MANIFEST
 htmlcov/
 .tox/
 .hypothesis/
-venv/
+**/venv
 env/
 ENV/
-.venv
+**/.venv
 
 # Node
-node_modules/
+**/node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

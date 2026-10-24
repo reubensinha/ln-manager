@@ -3,29 +3,24 @@ set -eu
 
 echo "[entrypoint] Starting container entrypoint"
 
-# Build frontend at container startup so newly installed plugins or dynamic assets
-# that were added to the filesystem are included in the build.
+# Rebuild the frontend at startup so plugin components mounted into src/plugins are
+# picked up - Vite's manifest glob resolves at build time, so a mounted plugin is
+# invisible until the bundle is regenerated.
+#
+# Dependencies are baked into the image from the committed lockfile, so this needs no
+# registry access and cannot drift between boots. Vite is invoked directly rather than
+# through `yarn build` to skip the tsc gate: a type error in a third-party plugin must
+# not stop the server from starting. If the build fails for any reason we fall back to
+# the bundle shipped with the image rather than crash-looping with no frontend at all.
 if [ -d /app/frontend ]; then
-  echo "[entrypoint] Found frontend source at /app/frontend"
   cd /app/frontend
-
-  # Install deps if node_modules doesn't exist or package.json changed
-  if [ ! -d node_modules ]; then
-    echo "[entrypoint] Installing frontend dependencies"
-    npm install --legacy-peer-deps --silent
-  else
-    echo "[entrypoint] node_modules exists, checking for updates"
-    npm install --legacy-peer-deps --silent
-  fi
-
   echo "[entrypoint] Building frontend"
-  npm run build
-
-  # Copy built assets into backend static directory
-  echo "[entrypoint] Updating backend static assets"
-  rm -rf /app/backend/static || true
-  mkdir -p /app/backend/static
-  cp -r dist/* /app/backend/static/ || true
+  if ! ./node_modules/.bin/vite build; then
+    echo "[entrypoint] WARNING: frontend build failed - serving the bundle shipped with the image"
+    echo "[entrypoint] WARNING: plugin UI components will be missing until the build succeeds"
+    rm -rf dist
+    cp -r dist.baked dist
+  fi
 else
   echo "[entrypoint] No frontend source found at /app/frontend, skipping build"
 fi
