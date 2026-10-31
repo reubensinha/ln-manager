@@ -93,24 +93,16 @@ function PluginsPage() {
     try {
       const result = await uploadPlugin(file);
 
-      if (result.success) {
-        notifications.show({
-          title: "Success",
-          message: result.message || "Plugin installed successfully.",
-          color: "green",
-        });
+      notifications.show({
+        title: "Success",
+        message: result.message || "Plugin installed successfully.",
+        color: "green",
+      });
 
-        setRestartModalOpened(true);
+      setRestartModalOpened(true);
 
-        // Refresh plugins list
-        queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
-      } else {
-        notifications.show({
-          title: "Error",
-          message: result.message || "Failed to install plugin.",
-          color: "red",
-        });
-      }
+      // Refresh plugins list
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -128,20 +120,12 @@ function PluginsPage() {
     try {
       const result = await deletePlugin(plugin.id);
 
-      if (result.success) {
-        notifications.show({
-          title: "Success",
-          message: result.message || "Plugin uninstalled successfully.",
-          color: "green",
-        });
-        queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
-      } else {
-        notifications.show({
-          title: "Error",
-          message: result.message || "Failed to uninstall plugin.",
-          color: "red",
-        });
-      }
+      notifications.show({
+        title: "Success",
+        message: result.message || "Plugin uninstalled successfully.",
+        color: "green",
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
     } catch (error) {
       notifications.show({
         title: "Error",

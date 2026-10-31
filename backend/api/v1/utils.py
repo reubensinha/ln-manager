@@ -9,21 +9,19 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import UUID
 
+from backend.core.constants import (
+    BUNDLED_PLUGIN_DIR,
+    FRONTEND_PLUGIN_DIR,
+    USER_PLUGIN_DIR,
+)
 from backend.core.database.models import Plugin
 
-
-## TODO: For install/uninstall plugin helpers. Paths for frontend and backend directories don't seem to be correct.
-# Project structure is:
-#       /
-#       |-- backend/
-#            |-- main.py          <-- fastapi entry point
-#            |-- api/v1/utils.py  <-- this file
-#            |-- plugins/
-#                   |-- <plugin_name>/
-#       |-- frontend/
-#            |-- src/
-#                 |-- plugins/
-#                        |-- <plugin_name>/
+# Installed plugins go to USER_PLUGIN_DIR (backend/config/plugins), not
+# BUNDLED_PLUGIN_DIR (backend/plugins). Both are searched by the loader via
+# PLUGIN_DIRS, but only USER_PLUGIN_DIR is inside the mounted config volume -
+# anything written to BUNDLED_PLUGIN_DIR is destroyed when the container is
+# recreated, while its frontend half survives in its own volume and then blocks
+# reinstallation. BUNDLED_PLUGIN_DIR is treated as read-only here.
 
 
 async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, Any]:
@@ -96,19 +94,26 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
         plugin_name = manifest["name"]
         plugin_root = manifest_path.parent
 
-        # Get absolute paths relative to project root
-        project_root = Path(__file__).resolve().parent.parent.parent.parent
-        backend_plugins_dir = project_root / "backend" / "plugins"
-        frontend_plugins_dir = project_root / "frontend" / "src" / "plugins"
+        plugin_backend_dest = USER_PLUGIN_DIR / plugin_name
+        plugin_frontend_dest = FRONTEND_PLUGIN_DIR / plugin_name
 
-        plugin_backend_dest = backend_plugins_dir / plugin_name
-        plugin_frontend_dest = frontend_plugins_dir / plugin_name
+        # A bundled plugin of the same name would be shadowed by this install and
+        # cannot be uninstalled to make room, so refuse rather than create a
+        # duplicate the loader would pick up twice.
+        if (BUNDLED_PLUGIN_DIR / plugin_name).exists():
+            raise HTTPException(
+                status_code=409,
+                detail=f"'{plugin_name}' is a bundled plugin and cannot be replaced by an install.",
+            )
 
         if plugin_backend_dest.exists() or plugin_frontend_dest.exists():
             raise HTTPException(
                 status_code=409,
                 detail=f"Plugin '{plugin_name}' already exists. Please uninstall it first.",
             )
+
+        USER_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
+        FRONTEND_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
 
         backend_src = plugin_root / "backend"
         if backend_src.exists() and backend_src.is_dir():
@@ -146,9 +151,10 @@ async def _install_plugin_util(file: UploadFile, session: Session) -> dict[str, 
                     status_code=500, detail=f"Failed to install frontend: {str(e)}"
                 )
 
+    # No "success" field: every failure path above raises HTTPException, so a 2xx
+    # response is itself the success signal and the flag could only ever be true.
     return {
-        "success": True,
-        "message": f"Plugin '{plugin_name}' version {manifest['version']} installed successfully.",
+        "message": f"Plugin '{plugin_name}' version {manifest['version']} installed successfully."
     }
 
 
@@ -164,13 +170,22 @@ async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str,
 
     plugin_name = plugin.name
 
-    # Get absolute paths relative to project root
-    project_root = Path(__file__).resolve().parent.parent.parent.parent
-    backend_plugins_dir = project_root / "backend" / "plugins"
-    frontend_plugins_dir = project_root / "frontend" / "src" / "plugins"
+    # Never delete out of BUNDLED_PLUGIN_DIR. It is image/source content, not user
+    # data: in a source checkout those directories are the only copy of plugins that
+    # are deliberately gitignored, so an rmtree here is unrecoverable. Disabling is
+    # the supported way to turn a bundled plugin off.
+    if (BUNDLED_PLUGIN_DIR / plugin_name).exists():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"'{plugin_name}' is a bundled plugin and cannot be uninstalled. "
+                "Disable it instead. (If it was installed by an older version that "
+                "wrote to the bundled directory, remove that directory manually.)"
+            ),
+        )
 
-    plugin_backend_path = backend_plugins_dir / plugin_name
-    plugin_frontend_path = frontend_plugins_dir / plugin_name
+    plugin_backend_path = USER_PLUGIN_DIR / plugin_name
+    plugin_frontend_path = FRONTEND_PLUGIN_DIR / plugin_name
 
     # Remove backend directory
     if plugin_backend_path.exists():
@@ -203,7 +218,4 @@ async def _uninstall_plugin_util(plugin_id: UUID, session: Session) -> dict[str,
             status_code=500, detail=f"Failed to remove plugin from database: {str(e)}"
         )
 
-    return {
-        "success": True,
-        "message": f"Plugin '{plugin_name}' uninstalled successfully.",
-    }
+    return {"message": f"Plugin '{plugin_name}' uninstalled successfully."}

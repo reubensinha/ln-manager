@@ -167,36 +167,26 @@ export async function getPluginCapabilities(): Promise<{
   return response.data;
 }
 
-export async function uploadPlugin(
-  file: File
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const formData = new FormData();
-    formData.append("plugin", file);
+// These throw on failure rather than returning a { success: false } sentinel, so
+// callers handle errors in one place and the detail from the backend survives.
+export async function uploadPlugin(file: File): Promise<{ message: string }> {
+  const formData = new FormData();
+  formData.append("plugin", file);
 
-    const response = await api.post(`/plugins/install`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+  const response = await api.post(`/plugins/install`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 
-    return response.data;
-  } catch (error) {
-    console.error("Error uploading plugin:", error);
-    return { success: false, message: "Failed to upload plugin." };
-  }
+  return response.data;
 }
 
 export async function deletePlugin(
   pluginId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/plugins/${pluginId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting plugin:", error);
-    return { success: false, message: "Failed to delete plugin." };
-  }
+): Promise<{ message: string }> {
+  const response = await api.delete(`/plugins/${pluginId}`);
+  return response.data;
 }
 
 export async function setPluginEnabled(

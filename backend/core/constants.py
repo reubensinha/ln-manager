@@ -16,8 +16,12 @@ MOUNT_DIR = BACKEND_DIR / "config"
 
 # Bundled plugins (part of the image)
 BUNDLED_PLUGIN_DIR = BACKEND_DIR / "plugins"
-# User-installed plugins (in backend/config/plugins/)
+# User-installed plugins (in backend/config/plugins/). This is inside the mounted
+# config volume, so installs survive container recreation - BUNDLED_PLUGIN_DIR does not.
 USER_PLUGIN_DIR = MOUNT_DIR / "plugins"
+# Frontend components contributed by installed plugins. Also a Docker volume mount;
+# Vite's manifest glob reads it at build time, so new ones appear after a rebuild.
+FRONTEND_PLUGIN_DIR = BACKEND_DIR.parent / "frontend" / "src" / "plugins"
 
 # Combined plugin directories to search
 PLUGIN_DIRS = [BUNDLED_PLUGIN_DIR, USER_PLUGIN_DIR]
