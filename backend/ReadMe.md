@@ -163,6 +163,7 @@ plugins/YourPlugin/
 Create `manifest.yaml`:
 
 ```yaml
+uid: 3f2a1b4c-5d6e-7f80-9123-456789abcdef # Stable UUID identity - generate once, never change
 name: YourPlugin
 version: 1.0.0
 description: Brief description of your plugin
@@ -173,6 +174,12 @@ dependencies: # Python packages (installed via pip)
   - httpx
   - beautifulsoup4
 ```
+
+`uid` is the plugin's identity, as distinct from `name`, which is only a display label.
+It is what lets the app recognise the same plugin across reinstalls, renames and
+repositories, so generate it once with `python -c "import uuid; print(uuid.uuid4())"` and
+leave it alone — changing it makes the app treat the plugin as a new one and lose its
+stored settings. The packager rejects a manifest without a valid one.
 
 #### Step 3: Implement the Plugin Class
 

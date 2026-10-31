@@ -131,11 +131,19 @@ def backup_database(
             report_progress(60, "Writing database export to backup...")
             zipf.writestr("database.json", json.dumps(tables_data, indent=2))
 
-            # Backup plugin configuration directory
-            report_progress(65, "Backing up plugin configurations...")
+            # Backup installed plugins (USER_PLUGIN_DIR). This holds the plugins the
+            # user installed from .lna archives - their source, not just configuration -
+            # so a restore brings back a working set rather than DB rows pointing at
+            # plugins that are no longer on disk. Bundled plugins ship with the image
+            # and are deliberately not included.
+            report_progress(65, "Backing up installed plugins...")
             plugins_config_dir = db_dir / "plugins"
             if plugins_config_dir.exists():
                 for file_path in plugins_config_dir.rglob("*"):
+                    # Skip compiled bytecode: it is regenerated on import, and its
+                    # embedded source mtime is invalidated by the restore anyway.
+                    if "__pycache__" in file_path.parts or file_path.suffix == ".pyc":
+                        continue
                     if file_path.is_file():
                         arcname = f"config/plugins/{file_path.relative_to(plugins_config_dir)}"
                         zipf.write(file_path, arcname)
@@ -294,8 +302,11 @@ def restore_database(
                     report_progress(70, "Committing database changes...")
                     session.commit()
 
-            # Restore plugin configuration files
-            report_progress(75, "Restoring plugin configurations...")
+            # Restore installed plugins. Note this merges into whatever is already on
+            # disk rather than replacing it, so a plugin installed after the backup
+            # survives the restore (its DB row is gone, but the startup manifest scan
+            # re-adds it).
+            report_progress(75, "Restoring installed plugins...")
             config_files = [f for f in zipf.filelist if f.filename.startswith("config/plugins/")]
             for idx, file_info in enumerate(config_files):
                 if idx % max(1, len(config_files) // 5) == 0:

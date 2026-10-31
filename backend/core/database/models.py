@@ -159,6 +159,7 @@ class PluginBase(SQLModel):
     Base class containing common descriptive fields for all plugin types.
 
     Fields:
+        uid (str | None): Stable globally-unique id from the plugin's manifest.
         name (str): The display name of the plugin.
         version (str): The version string of the plugin.
         description (str | None): A brief explanation of what the plugin does.
@@ -166,6 +167,17 @@ class PluginBase(SQLModel):
         enabled (bool): Whether the plugin is currently active and running.
     """
 
+    # Stable identity declared by the plugin's manifest as a UUID string. Distinct from
+    # Plugin.id, which is this row's primary key and the FK target for capability rows -
+    # repointing that would break existing databases. `uid` is what identifies the same
+    # plugin across repositories and reinstalls, where `name` is only a display label
+    # and two authors may well pick the same one.
+    #
+    # Nullable because rows created before this field existed have no uid; startup
+    # backfills them by name. Not secret, so it belongs on PluginBase and is exposed
+    # through PluginPublic - the UI needs it to match installed plugins to catalog
+    # entries.
+    uid: str | None = Field(default=None, index=True, unique=True)
     name: str
     version: str
     author: str

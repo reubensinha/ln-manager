@@ -4,6 +4,7 @@ import importlib
 import shutil
 import sys
 import logging
+import uuid
 from pathlib import Path
 from typing import Dict, Type, Any
 
@@ -14,6 +15,26 @@ from backend.core.logging_config import get_logger
 
 
 logger = get_logger(__name__)
+
+
+def normalise_uid(raw: Any, *, plugin_name: str = "<unknown>") -> str | None:
+    """Return a manifest `uid` in canonical UUID form, or None if absent/unusable.
+
+    `uuid.UUID` accepts several spellings of the same value - with and without dashes,
+    braced, upper or lower case - so comparing the raw strings would treat one plugin as
+    two. Since `uid` is what identifies a plugin across repositories and reinstalls,
+    every read goes through here so the stored and compared form is always the same.
+
+    A malformed uid is dropped rather than raised on: a bad manifest should not stop the
+    rest of the plugins from loading. The packager rejects them at build time.
+    """
+    if raw is None:
+        return None
+    try:
+        return str(uuid.UUID(str(raw)))
+    except (ValueError, AttributeError, TypeError):
+        logger.warning(f"Plugin '{plugin_name}' has a malformed uid {raw!r}; ignoring it")
+        return None
 
 
 class PluginManager:

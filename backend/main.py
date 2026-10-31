@@ -38,7 +38,7 @@ from backend.core.database.models import (
     Parser,
 )
 from backend.core.notifications import notification_manager
-from backend.plugin_manager import PluginManager, plugin_manager
+from backend.plugin_manager import PluginManager, plugin_manager, normalise_uid
 from backend.core.constants import PLUGIN_DIRS, STATIC_DIR, SAFE_MODE
 from backend.core.exceptions import (
     ResourceNotFoundError,
@@ -98,6 +98,7 @@ async def lifespan(app: FastAPI):
 
                 manifest = yaml.safe_load(manifest_file.open())
                 name = manifest.get("name")
+                uid = normalise_uid(manifest.get("uid"), plugin_name=name or str(folder))
                 version = manifest.get("version")
                 description = manifest.get("description", "")
                 author = manifest.get("author", "")
@@ -105,12 +106,23 @@ async def lifespan(app: FastAPI):
 
                 logger.debug(f"Found plugin manifest: {name} v{version}")
 
-                db_plugin = session.exec(
-                    select(Plugin).where(Plugin.name == name)
-                ).first()
+                # Match on uid first - it is the plugin's stable identity and survives a
+                # rename. Fall back to name so rows written before uid existed are
+                # adopted and backfilled rather than duplicated; without that fallback
+                # every already-installed plugin would gain a second row on upgrade.
+                db_plugin = None
+                if uid:
+                    db_plugin = session.exec(
+                        select(Plugin).where(Plugin.uid == uid)
+                    ).first()
+                if db_plugin is None:
+                    db_plugin = session.exec(
+                        select(Plugin).where(Plugin.name == name)
+                    ).first()
 
                 if not db_plugin:
                     db_plugin = Plugin(
+                        uid=uid,
                         name=name,
                         version=version,
                         author=author,
@@ -120,6 +132,16 @@ async def lifespan(app: FastAPI):
                     session.add(db_plugin)
                     logger.info(f"Added new plugin to database: {name} v{version}")
                 else:
+                    if uid and db_plugin.uid != uid:
+                        logger.info(
+                            f"Backfilling uid for plugin '{name}': {uid}"
+                            if db_plugin.uid is None
+                            else f"Plugin '{name}' uid changed: {db_plugin.uid} -> {uid}"
+                        )
+                        db_plugin.uid = uid
+                    # A manifest without a uid is tolerated so plugins predating the
+                    # field keep loading; the packager rejects new ones that omit it.
+                    db_plugin.name = name
                     db_plugin.version = version
                     db_plugin.description = description
                     db_plugin.author = author
