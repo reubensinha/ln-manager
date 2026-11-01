@@ -149,7 +149,7 @@ export type PluginResponse = {
   author: string;
   description?: string;
   enabled: boolean;
-  status?: string; // loaded | failed | missing | disabled | safe_mode
+  status?: string; // loaded | failed | pending_restart | missing | disabled | safe_mode
   error?: string | null;
   has_settings?: boolean;
   routes?: PluginRoute[];

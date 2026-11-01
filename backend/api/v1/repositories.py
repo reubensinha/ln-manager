@@ -5,12 +5,15 @@ not routes contributed by a plugin.
 """
 
 from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, col, select
+from sqlmodel import Session, SQLModel, col, select
 
+from backend.api.v1.utils import _install_from_lna_path
 from backend.core.database.database import get_session
 from backend.core.database.models import (
     Plugin,
@@ -21,15 +24,31 @@ from backend.core.database.models import (
 )
 from backend.core.logging_config import get_logger
 from backend.core.plugins.repository import (
+    CatalogVersion,
     RepositoryError,
+    download_artifact,
     fetch_catalog,
     merge_catalogs,
     validate_repository_url,
 )
+from backend.plugin_manager import normalise_uid
 
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+class CatalogInstallRequest(SQLModel):
+    """Which catalog plugin to install.
+
+    `version` defaults to the newest on offer and `repository_id` to whichever
+    repository provides it, which is unambiguous unless repositories disagree about the
+    artifact for that version - see the conflict check in the endpoint.
+    """
+
+    uid: str
+    version: str | None = None
+    repository_id: UUID | None = None
 
 
 def _to_public(session: Session, repo: PluginRepository) -> PluginRepositoryPublic:
@@ -179,6 +198,14 @@ async def refresh_repository(
     return _to_public(session, repo)
 
 
+def _enabled_repositories(session: Session) -> list[PluginRepository]:
+    return list(
+        session.exec(
+            select(PluginRepository).where(PluginRepository.enabled == True)
+        ).all()
+    )
+
+
 @router.get("/plugin-catalog")
 async def get_catalog(*, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Every plugin on offer across enabled repositories, deduplicated by uid.
@@ -187,13 +214,8 @@ async def get_catalog(*, session: Session = Depends(get_session)) -> dict[str, A
     the refresh endpoint to update it. Entries are annotated with whether that uid is
     already installed, which is the whole reason a stable uid exists.
     """
-    repos = session.exec(
-        select(PluginRepository).where(PluginRepository.enabled == True)
-    ).all()
-
-    entries = merge_catalogs(
-        [(str(r.id), r.name, r.catalog or {}) for r in repos]
-    )
+    repos = _enabled_repositories(session)
+    entries = merge_catalogs([(str(r.id), r.name, r.catalog or {}) for r in repos])
 
     installed = {
         p.uid: p for p in session.exec(select(Plugin)).all() if p.uid
@@ -216,3 +238,103 @@ async def get_catalog(*, session: Session = Depends(get_session)) -> dict[str, A
             if r.last_error
         ],
     }
+
+
+def _select_version(
+    entry_name: str,
+    versions: list[CatalogVersion],
+    payload: CatalogInstallRequest,
+) -> CatalogVersion:
+    """Pick the version to install, narrowing by whatever the request specified."""
+    candidates = versions
+    if payload.repository_id is not None:
+        candidates = [v for v in candidates if v.repo_id == str(payload.repository_id)]
+        if not candidates:
+            raise HTTPException(
+                status_code=404,
+                detail=f"That repository does not offer '{entry_name}'.",
+            )
+    if payload.version is not None:
+        candidates = [v for v in candidates if v.version == payload.version]
+        if not candidates:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Version '{payload.version}' of '{entry_name}' is not on offer.",
+            )
+    if not candidates:
+        raise HTTPException(
+            status_code=404,
+            detail=f"'{entry_name}' has no installable versions.",
+        )
+    # merge_catalogs sorts versions newest-first, so the default is the newest release.
+    return candidates[0]
+
+
+@router.post("/plugin-catalog/install")
+async def install_from_catalog(
+    *, payload: CatalogInstallRequest, session: Session = Depends(get_session)
+) -> dict[str, str]:
+    """Download a plugin from a repository and install it.
+
+    The artifact is verified against the catalog's sha256 before anything is unpacked,
+    and the resulting plugin row records which repository it came from. As with a manual
+    upload, the plugin is on disk but not loaded until the server restarts.
+    """
+    uid = normalise_uid(payload.uid)
+    if not uid:
+        raise HTTPException(status_code=400, detail="A valid plugin uid is required.")
+
+    repos = _enabled_repositories(session)
+    entries = merge_catalogs([(str(r.id), r.name, r.catalog or {}) for r in repos])
+    entry = next((e for e in entries if e.uid == uid), None)
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No enabled repository offers a plugin with uid {uid}.",
+        )
+
+    if session.exec(select(Plugin).where(Plugin.uid == uid)).first():
+        raise HTTPException(
+            status_code=409,
+            detail=f"'{entry.name}' is already installed. Uninstall it first.",
+        )
+
+    chosen = _select_version(entry.name, entry.versions, payload)
+
+    # Repositories disagreeing about what this version's bytes are is the one case the
+    # catalog cannot resolve on the user's behalf: picking either silently would install
+    # code the user did not choose. Naming a repository is the way to say which.
+    if payload.repository_id is None and any(
+        c["version"] == chosen.version for c in entry.conflicts
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Repositories disagree about version {chosen.version} of "
+                f"'{entry.name}' - they offer different files under the same version. "
+                "Choose which repository to install from."
+            ),
+        )
+
+    with TemporaryDirectory() as temp_dir:
+        # A fixed name: the catalog's plugin name is remote input and has no business
+        # deciding a path, even a temporary one.
+        lna_path = Path(temp_dir) / "artifact.lna"
+        try:
+            await download_artifact(chosen.url, lna_path, chosen.sha256)
+        except RepositoryError as exc:
+            # 502, not 400: the request was fine, the repository's response was not.
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        result = _install_from_lna_path(
+            lna_path,
+            session,
+            source_repo_id=UUID(chosen.repo_id) if chosen.repo_id else None,
+            expected_uid=uid,
+        )
+
+    logger.info(
+        f"Installed '{entry.name}' {chosen.version} from repository "
+        f"'{chosen.repo_name}' ({chosen.url})"
+    )
+    return result

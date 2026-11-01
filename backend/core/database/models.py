@@ -292,7 +292,7 @@ class PluginPublic(PluginBase):
 class PluginStatusPublic(PluginPublic):
     """Plugin row enriched with its runtime load status for the Plugins page.
 
-    status: loaded | failed | missing | disabled | safe_mode
+    status: loaded | failed | pending_restart | missing | disabled | safe_mode
     """
 
     status: str = "loaded"

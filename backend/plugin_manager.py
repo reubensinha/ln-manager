@@ -65,7 +65,7 @@ class PluginManager:
     def get_status(self, name: str, enabled: bool) -> tuple[str, str | None]:
         """Return (status, error) for a plugin given its DB `enabled` flag.
 
-        status is one of: disabled, safe_mode, loaded, failed, missing.
+        status is one of: disabled, safe_mode, loaded, failed, pending_restart, missing.
         The safe_mode case is decided by the caller (which knows the global flag) and passed
         in via `enabled=False`-style handling; here safe_mode is not inferred.
         """
@@ -75,6 +75,12 @@ class PluginManager:
             return "loaded", None
         if name in self.failed_plugins:
             return "failed", self.failed_plugins[name]
+        # The files are on disk but this process never loaded them: a plugin installed
+        # since boot, waiting for the restart the UI asks for. Distinct from "missing",
+        # which means the row has outlived its files.
+        for plugin_dir in PLUGIN_DIRS:
+            if (plugin_dir / name / "manifest.yaml").exists():
+                return "pending_restart", None
         return "missing", None
 
     def install_dependencies(self, dependencies: list[str]):

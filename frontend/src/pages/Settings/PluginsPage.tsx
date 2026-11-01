@@ -28,6 +28,7 @@ const STATUS_COLOR: Record<string, string> = {
   loaded: "green",
   failed: "red",
   missing: "orange",
+  pending_restart: "blue",
   disabled: "gray",
   safe_mode: "yellow",
 };
@@ -35,6 +36,7 @@ const STATUS_LABEL: Record<string, string> = {
   loaded: "Loaded",
   failed: "Failed",
   missing: "Missing",
+  pending_restart: "Restart needed",
   disabled: "Disabled",
   safe_mode: "Safe mode",
 };
