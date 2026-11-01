@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  addPluginRepository,
   getPluginCapabilities,
+  getPluginCatalog,
   getPluginDownloadClients,
   getPluginIndexers,
+  getPluginRepositories,
   getPluginSettings,
   getPlugins,
+  installFromCatalog,
+  refreshPluginRepository,
+  removePluginRepository,
   setPluginEnabled,
+  updatePluginRepository,
   updatePluginSettings,
 } from "../api";
 import type { PluginCapability, PluginResponse } from "../ApiResponse";
@@ -57,6 +64,88 @@ export function useUpdatePluginSettings(pluginId: string) {
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.pluginSettings(pluginId), data);
       queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
+    },
+  });
+}
+
+export function usePluginRepositories() {
+  return useQuery({
+    queryKey: queryKeys.pluginRepositories,
+    queryFn: getPluginRepositories,
+  });
+}
+
+export function usePluginCatalog(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.pluginCatalog,
+    queryFn: getPluginCatalog,
+    enabled,
+  });
+}
+
+/** Adding a repository fetches its index, so the catalog changes too. */
+export function useAddPluginRepository() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { url: string; name?: string }) =>
+      addPluginRepository(vars.url, vars.name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginRepositories });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginCatalog });
+    },
+  });
+}
+
+export function useUpdatePluginRepository() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      id: string;
+      changes: { name?: string; enabled?: boolean };
+    }) => updatePluginRepository(vars.id, vars.changes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginRepositories });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginCatalog });
+    },
+  });
+}
+
+/** Removing a repository keeps its plugins installed but clears their origin. */
+export function useRemovePluginRepository() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => removePluginRepository(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginRepositories });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginCatalog });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
+    },
+  });
+}
+
+export function useRefreshPluginRepository() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => refreshPluginRepository(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginRepositories });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginCatalog });
+    },
+  });
+}
+
+export function useInstallFromCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      uid: string;
+      version?: string;
+      repository_id?: string;
+    }) => installFromCatalog(vars),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginCatalog });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pluginRepositories });
     },
   });
 }

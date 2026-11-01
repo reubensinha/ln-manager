@@ -12,6 +12,8 @@ import type {
   PluginCapability,
   PluginSettingsResponse,
   BackupResponse,
+  PluginRepositoryResponse,
+  PluginCatalogResponse,
   BackupListResponse,
   TaskResponse,
   TaskStatusResponse,
@@ -186,6 +188,62 @@ export async function deletePlugin(
   pluginId: string
 ): Promise<{ message: string }> {
   const response = await api.delete(`/plugins/${pluginId}`);
+  return response.data;
+}
+
+export async function getPluginRepositories(): Promise<
+  PluginRepositoryResponse[]
+> {
+  const response = await api.get(`/plugin-repositories`);
+  return response.data;
+}
+
+export async function addPluginRepository(
+  url: string,
+  name?: string
+): Promise<PluginRepositoryResponse> {
+  const response = await api.post(`/plugin-repositories`, { url, name });
+  return response.data;
+}
+
+export async function updatePluginRepository(
+  repositoryId: string,
+  changes: { name?: string; enabled?: boolean }
+): Promise<PluginRepositoryResponse> {
+  const response = await api.patch(
+    `/plugin-repositories/${repositoryId}`,
+    changes
+  );
+  return response.data;
+}
+
+export async function removePluginRepository(
+  repositoryId: string
+): Promise<{ message: string }> {
+  const response = await api.delete(`/plugin-repositories/${repositoryId}`);
+  return response.data;
+}
+
+export async function refreshPluginRepository(
+  repositoryId: string
+): Promise<PluginRepositoryResponse> {
+  const response = await api.post(
+    `/plugin-repositories/${repositoryId}/refresh`
+  );
+  return response.data;
+}
+
+export async function getPluginCatalog(): Promise<PluginCatalogResponse> {
+  const response = await api.get(`/plugin-catalog`);
+  return response.data;
+}
+
+export async function installFromCatalog(params: {
+  uid: string;
+  version?: string;
+  repository_id?: string;
+}): Promise<{ message: string }> {
+  const response = await api.post(`/plugin-catalog/install`, params);
   return response.data;
 }
 

@@ -298,6 +298,10 @@ class PluginStatusPublic(PluginPublic):
     status: str = "loaded"
     error: str | None = None
     has_settings: bool = False
+    # Part of the image rather than user-installed, so it cannot be uninstalled. Derived
+    # from BUNDLED_PLUGIN_DIR on each read; see the note on PluginBase.source_repo_id for
+    # why this is not a stored column.
+    bundled: bool = False
 
 
 class PluginUpdate(SQLModel):

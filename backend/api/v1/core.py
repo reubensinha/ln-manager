@@ -9,7 +9,7 @@ from uuid import UUID
 from backend.api.v1.utils import _install_plugin_util, _uninstall_plugin_util
 from backend.core.database.models import *
 from backend.core.database.database import get_session
-from backend.core.constants import SAFE_MODE
+from backend.core.constants import BUNDLED_PLUGIN_DIR, SAFE_MODE
 from backend.plugin_manager import plugin_manager
 from backend.core.plugins.metadata import MetadataPlugin
 from backend.core.plugins.settings import defaults_for, mask_secrets, validate_and_merge
@@ -111,6 +111,9 @@ def _plugin_with_status(plugin: Plugin) -> PluginStatusPublic:
         status=status,
         error=error,
         has_settings=bool(_settings_schema_for(plugin.name)),
+        # Derived from the disk, not stored: the same test the install and uninstall
+        # guards use, so what the UI shows cannot drift from what those guards enforce.
+        bundled=(BUNDLED_PLUGIN_DIR / plugin.name).exists(),
     )
 
 
