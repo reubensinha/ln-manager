@@ -154,6 +154,67 @@ class Dependency(SQLModel, table=True):
     version: str | None = None
 
 
+class PluginRepositoryBase(SQLModel):
+    """
+    Base class for a user-added source of installable plugins.
+
+    Fields:
+        name (str): Display name for the repository.
+        url (str): URL of the repository's index document.
+        enabled (bool): Whether the repository is consulted when building the catalog.
+    """
+
+    name: str
+    url: str = Field(index=True, unique=True)
+    enabled: bool = Field(default=True)
+
+
+class PluginRepository(PluginRepositoryBase, table=True):
+    """
+    A plugin repository the user has added, plus its last fetched catalog.
+
+    Relationships:
+        plugins (list[Plugin]): Installed plugins that came from this repository.
+    """
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    last_refreshed_at: datetime | None = None
+    last_error: str | None = None
+
+    # The repository's fetched index, cached verbatim so browsing does not hit the
+    # network. Declared here and not on PluginRepositoryBase for the same reason as
+    # Plugin.config: the *Public models inherit the base, and a whole catalog has no
+    # business being returned by the repository list endpoint.
+    catalog: dict | None = Field(default=None, sa_column=Column(JSON))
+
+    plugins: list["Plugin"] = Relationship(back_populates="source_repo")
+
+
+class PluginRepositoryPublic(PluginRepositoryBase):
+    """Public API representation of a repository, without its cached catalog."""
+
+    id: uuid.UUID
+    created_at: datetime
+    last_refreshed_at: datetime | None = None
+    last_error: str | None = None
+    plugin_count: int = 0
+
+
+class PluginRepositoryCreate(SQLModel):
+    """A new repository. `name` is optional and falls back to the index's own name."""
+
+    url: str
+    name: str | None = None
+
+
+class PluginRepositoryUpdate(SQLModel):
+    """Partial update for a repository."""
+
+    name: str | None = None
+    enabled: bool | None = None
+
+
 class PluginBase(SQLModel):
     """
     Base class containing common descriptive fields for all plugin types.
@@ -183,6 +244,18 @@ class PluginBase(SQLModel):
     author: str
     description: str | None = None
     enabled: bool = Field(default=True)
+
+    # Which repository this plugin was installed from, or None for a bundled plugin or
+    # a manual .lna upload. SET NULL rather than CASCADE: removing a repository must not
+    # uninstall the plugins that came from it.
+    #
+    # There is deliberately no stored "source" string alongside this. Whether a plugin
+    # is bundled is decided by whether it lives in BUNDLED_PLUGIN_DIR - the same test
+    # the uninstall guard uses - so deriving it cannot drift out of sync with the disk,
+    # which a stored column would if a plugin were ever adopted into the image.
+    source_repo_id: uuid.UUID | None = Field(
+        default=None, foreign_key="pluginrepository.id", ondelete="SET NULL"
+    )
     # routes: list[str] | None = None
     # navbarLinks: list[str] | None = None
 
@@ -198,6 +271,8 @@ class Plugin(PluginBase, table=True):
     # the *Public models inherit PluginBase, and settings may contain secrets that
     # must never be returned by the plugin list endpoints.
     config: dict | None = Field(default=None, sa_column=Column(JSON))
+
+    source_repo: PluginRepository | None = Relationship(back_populates="plugins")
 
     metadata_sources: list["MetadataSource"] = Relationship(back_populates="plugin")
     indexers: list["Indexer"] = Relationship(back_populates="plugin")

@@ -54,7 +54,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients
+from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients, repositories
 
 # Initialize logging at the very start
 setup_logging(
@@ -598,6 +598,7 @@ app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
 app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
 app.include_router(parsers.router, prefix="/api/v1", tags=["parsers"])
 app.include_router(download_clients.router, prefix="/api/v1", tags=["download_clients"])
+app.include_router(repositories.router, prefix="/api/v1", tags=["plugin_repositories"])
 
 # Plugin routers and root-level routes are registered inside the lifespan
 # (see _register_plugin_http) because plugins are only loaded there.
