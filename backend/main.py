@@ -74,6 +74,27 @@ scheduler.add_job(
 scheduler.add_job(check_release_day, "cron", hour=0, minute=0)
 
 
+# Strong references to background startup work. asyncio only holds a weak reference to a
+# running task, so without this a task can be garbage collected mid-flight.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_background(coro, description: str) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    logger.debug(f"Started background task: {description}")
+
+
+async def _hydrate_repositories() -> None:
+    """Give repositories with no cached catalog one fetch, off the startup path."""
+    try:
+        with Session(engine) as session:
+            await repositories.hydrate_repository_catalogs(session)
+    except Exception as e:
+        logger.error(f"Plugin repository hydration failed: {e}", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Perform startup tasks
@@ -415,12 +436,26 @@ async def lifespan(app: FastAPI):
                     )
                 )
 
+        # Fetch the index for any repository that has never been refreshed - the seeded
+        # default, on a first boot. Backgrounded rather than awaited: a delegated index
+        # is one request per plugin, so an unreachable repository could hold startup up
+        # for minutes, and nothing at boot reads the catalog.
+        _spawn_background(_hydrate_repositories(), "plugin repository hydration")
+
         logger.info("Application startup complete")
 
         yield
 
         # Perform shutdown tasks
         logger.info("Application shutting down...")
+
+        # A repository fetch can still be in flight, with its own session open. Cancel
+        # it rather than letting it outlive the app and log against a closing database.
+        for task in list(_background_tasks):
+            task.cancel()
+        if _background_tasks:
+            await asyncio.gather(*_background_tasks, return_exceptions=True)
+
         scheduler.shutdown()
         logger.info("Scheduler stopped")
 

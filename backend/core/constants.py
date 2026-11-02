@@ -26,6 +26,16 @@ FRONTEND_PLUGIN_DIR = BACKEND_DIR.parent / "frontend" / "src" / "plugins"
 # Combined plugin directories to search
 PLUGIN_DIRS = [BUNDLED_PLUGIN_DIR, USER_PLUGIN_DIR]
 
+# The plugin repository every install starts with. Seeded once, by migration, and then
+# owned by the user: it can be renamed, disabled or removed like any other, and a removal
+# is permanent because the migration never runs again. Changing this URL later means a new
+# migration, which is deliberate - silently re-pointing an existing install at a different
+# source of executable code is not something a version bump should do.
+DEFAULT_PLUGIN_REPOSITORY_NAME = "LN-Manager Plugins"
+DEFAULT_PLUGIN_REPOSITORY_URL = (
+    "https://raw.githubusercontent.com/reubensinha/ln-manager-plugins/main/index.json"
+)
+
 # Directory for storing logs
 LOG_DIR = MOUNT_DIR / "logs"
 

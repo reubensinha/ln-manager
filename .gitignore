@@ -261,3 +261,7 @@ docker/test
 Context/
 DESIGN_INSPOs.md
 backend/plugins/Reviews
+
+# Staging area for the ln-manager-plugins repo. Holds copies of plugin sources that are
+# deliberately gitignored above, so without this a `git add -A` would commit them here.
+temp_repo_folder/

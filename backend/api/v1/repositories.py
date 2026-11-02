@@ -164,6 +164,29 @@ async def remove_repository(
     return {"message": f"Repository '{name}' removed."}
 
 
+async def _refresh_catalog(session: Session, repo: PluginRepository) -> None:
+    """Re-fetch `repo`'s index into its cached catalog, recording the outcome on the row.
+
+    Raises `RepositoryError` on failure, but only after persisting it: the endpoint turns
+    that into a 502 while startup just logs it, and both have to leave the same record
+    behind so an unreachable repository reads the same in the UI either way.
+    """
+    try:
+        catalog = await fetch_catalog(repo.url)
+    except RepositoryError as exc:
+        repo.last_error = str(exc)
+        repo.last_refreshed_at = datetime.utcnow()
+        session.add(repo)
+        session.commit()
+        raise
+
+    repo.catalog = catalog
+    repo.last_error = None
+    repo.last_refreshed_at = datetime.utcnow()
+    session.add(repo)
+    session.commit()
+
+
 @router.post(
     "/plugin-repositories/{repository_id}/refresh",
     response_model=PluginRepositoryPublic,
@@ -181,21 +204,43 @@ async def refresh_repository(
         raise HTTPException(status_code=404, detail="Repository not found")
 
     try:
-        catalog = await fetch_catalog(repo.url)
+        await _refresh_catalog(session, repo)
     except RepositoryError as exc:
-        repo.last_error = str(exc)
-        repo.last_refreshed_at = datetime.utcnow()
-        session.add(repo)
-        session.commit()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    repo.catalog = catalog
-    repo.last_error = None
-    repo.last_refreshed_at = datetime.utcnow()
-    session.add(repo)
-    session.commit()
     session.refresh(repo)
     return _to_public(session, repo)
+
+
+async def hydrate_repository_catalogs(session: Session) -> None:
+    """Fetch the index for every enabled repository that has never been refreshed.
+
+    This exists for the repository seeded by migration 0006, which is written without a
+    catalog because a migration must not do network I/O. Only rows with no catalog at
+    all are fetched - a repository that already has one keeps it, so startup does not
+    become a refresh-everything pass that re-fetches on every restart. A row whose first
+    fetch failed is retried on the next boot, which is the behaviour a transient outage
+    during a first boot wants.
+
+    Nothing here is fatal: an unreachable repository must not stop the app from starting.
+    """
+    pending = session.exec(
+        select(PluginRepository).where(
+            col(PluginRepository.catalog).is_(None),
+            PluginRepository.enabled == True,
+        )
+    ).all()
+
+    for repo in pending:
+        try:
+            await _refresh_catalog(session, repo)
+        except RepositoryError as exc:
+            logger.warning(f"Could not fetch the index for '{repo.name}': {exc}")
+        else:
+            offered = len((repo.catalog or {}).get("plugins") or [])
+            logger.info(
+                f"Fetched the index for '{repo.name}', offering {offered} plugin(s)"
+            )
 
 
 def _enabled_repositories(session: Session) -> list[PluginRepository]:
