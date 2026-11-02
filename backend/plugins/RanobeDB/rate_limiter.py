@@ -18,11 +18,26 @@ from pyrate_limiter import Limiter, Rate, Duration, SQLiteBucket, InMemoryBucket
 REQUEST_RATE = Rate(60, Duration.MINUTE)
 
 # SQLite DB path for persistence - will be set by the plugin instance
-# Default to local data directory for module-level initialization
-_DEFAULT_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Default to the persistent plugin-data directory for module-level initialization.
+# Not the plugin's own folder: that lives inside the image, which is root-owned and so
+# unwritable when the container runs as a non-root user - and the makedirs below happens
+# at import, so failing it fails the whole plugin before it can redirect us. It is also
+# wiped on container recreation. ranobedb.py reinitialises us with the instance's
+# self.data_dir once it starts, so this only has to be somewhere writable.
+_PLUGIN_DATA_DIR = os.environ.get("PLUGIN_DATA_DIR")
+_DEFAULT_DATA_DIR = (
+    os.path.join(_PLUGIN_DATA_DIR, "RanobeDB")
+    if _PLUGIN_DATA_DIR
+    else os.path.join(os.path.dirname(__file__), "data")
+)
 _DATA_DIR = _DEFAULT_DATA_DIR
 SQLITE_DB_PATH = os.path.join(_DATA_DIR, "pyrate_limiter_global.sqlite")
-os.makedirs(_DATA_DIR, exist_ok=True)
+# Best-effort: _init_limiter already falls back to an in-memory bucket when the SQLite
+# path is unusable, so an unwritable directory must not raise out of the import.
+try:
+    os.makedirs(_DATA_DIR, exist_ok=True)
+except OSError as exc:
+    print(f"[WARN] Could not create rate limiter data dir {_DATA_DIR}: {exc}")
 
 # Key for all calls (all functions using this key share the same global limit)
 LIMIT_ITEM_NAME = "RanobeDB_api_call"
@@ -38,7 +53,11 @@ def _init_limiter(data_dir: str | None = None):
     if data_dir:
         _DATA_DIR = data_dir
         SQLITE_DB_PATH = os.path.join(_DATA_DIR, "pyrate_limiter_global.sqlite")
-        os.makedirs(_DATA_DIR, exist_ok=True)
+        # Outside the try below, so guarded here too - see the note at import time.
+        try:
+            os.makedirs(_DATA_DIR, exist_ok=True)
+        except OSError as exc:
+            print(f"[WARN] Could not create rate limiter data dir {_DATA_DIR}: {exc}")
     
     try:
         # Use init_from_file to properly handle file locking for multi-process safety

@@ -58,6 +58,16 @@ COPY --from=frontend-build /frontend/node_modules /app/frontend/node_modules
 # has a directory to look at even when nothing is mounted.
 RUN mkdir -p /app/frontend/src/plugins
 
+# The startup rebuild runs as whatever user the container is given - a compose `user:`,
+# PUID/PGID, or rootless Docker - so everything vite writes has to be writable by any
+# uid, not just root. Without this a non-root container cannot build and cannot replace
+# dist either, which takes the entrypoint's fallback down with it. Only build output and
+# vite's own scratch directories are opened up; the sources stay read-only.
+RUN mkdir -p /app/frontend/node_modules/.vite-temp /app/frontend/node_modules/.vite \
+ && chmod -R a+rwX /app/frontend/dist \
+                   /app/frontend/node_modules/.vite-temp \
+                   /app/frontend/node_modules/.vite
+
 # Install Node.js runtime in the final image so the entrypoint can rebuild the
 # frontend when plugin components are mounted in.
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \

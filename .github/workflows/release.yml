@@ -19,10 +19,13 @@ jobs:
   release:
     # Only run for PRs that were actually merged (a plain "closed" is ignored).
     if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    # Pinned rather than `ubuntu-latest`: that label migrates to Ubuntu 26 from
+    # 2026-10-19, and a run that pushes to main and publishes an image should not
+    # change underneath us on GitHub's schedule. Bump deliberately.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -51,8 +54,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Next version: ${version} (image tag ${tag})"
 
+      # Pinned to an exact version, unlike the other actions here: setup-uv stopped
+      # publishing moving major tags at v8, so `@v10` does not exist and `@v7` is the
+      # last tag that still moves. Bump this by hand when upgrading uv.
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.3
 
       # Regenerate the pinned requirements from uv.lock so the image installs exactly the
       # versions that are locked/tested locally (avoids "works locally, breaks in Docker"
@@ -62,18 +68,18 @@ jobs:
         run: uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build first: if the image build fails, the version is not bumped.
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.combined
