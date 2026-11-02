@@ -10,7 +10,10 @@ import type {
   Notification,
   MetadataSource,
   PluginCapability,
+  PluginSettingsResponse,
   BackupResponse,
+  PluginRepositoryResponse,
+  PluginCatalogResponse,
   BackupListResponse,
   TaskResponse,
   TaskStatusResponse,
@@ -166,36 +169,82 @@ export async function getPluginCapabilities(): Promise<{
   return response.data;
 }
 
-export async function uploadPlugin(
-  file: File
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const formData = new FormData();
-    formData.append("plugin", file);
+// These throw on failure rather than returning a { success: false } sentinel, so
+// callers handle errors in one place and the detail from the backend survives.
+export async function uploadPlugin(file: File): Promise<{ message: string }> {
+  const formData = new FormData();
+  formData.append("plugin", file);
 
-    const response = await api.post(`/plugins/install`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+  const response = await api.post(`/plugins/install`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 
-    return response.data;
-  } catch (error) {
-    console.error("Error uploading plugin:", error);
-    return { success: false, message: "Failed to upload plugin." };
-  }
+  return response.data;
 }
 
 export async function deletePlugin(
   pluginId: string
-): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await api.delete(`/plugins/${pluginId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting plugin:", error);
-    return { success: false, message: "Failed to delete plugin." };
-  }
+): Promise<{ message: string }> {
+  const response = await api.delete(`/plugins/${pluginId}`);
+  return response.data;
+}
+
+export async function getPluginRepositories(): Promise<
+  PluginRepositoryResponse[]
+> {
+  const response = await api.get(`/plugin-repositories`);
+  return response.data;
+}
+
+export async function addPluginRepository(
+  url: string,
+  name?: string
+): Promise<PluginRepositoryResponse> {
+  const response = await api.post(`/plugin-repositories`, { url, name });
+  return response.data;
+}
+
+export async function updatePluginRepository(
+  repositoryId: string,
+  changes: { name?: string; enabled?: boolean }
+): Promise<PluginRepositoryResponse> {
+  const response = await api.patch(
+    `/plugin-repositories/${repositoryId}`,
+    changes
+  );
+  return response.data;
+}
+
+export async function removePluginRepository(
+  repositoryId: string
+): Promise<{ message: string }> {
+  const response = await api.delete(`/plugin-repositories/${repositoryId}`);
+  return response.data;
+}
+
+export async function refreshPluginRepository(
+  repositoryId: string
+): Promise<PluginRepositoryResponse> {
+  const response = await api.post(
+    `/plugin-repositories/${repositoryId}/refresh`
+  );
+  return response.data;
+}
+
+export async function getPluginCatalog(): Promise<PluginCatalogResponse> {
+  const response = await api.get(`/plugin-catalog`);
+  return response.data;
+}
+
+export async function installFromCatalog(params: {
+  uid: string;
+  version?: string;
+  repository_id?: string;
+}): Promise<{ message: string }> {
+  const response = await api.post(`/plugin-catalog/install`, params);
+  return response.data;
 }
 
 export async function setPluginEnabled(
@@ -203,6 +252,21 @@ export async function setPluginEnabled(
   enabled: boolean
 ): Promise<PluginResponse> {
   const response = await api.patch(`/plugins/${pluginId}`, { enabled });
+  return response.data;
+}
+
+export async function getPluginSettings(
+  pluginId: string
+): Promise<PluginSettingsResponse> {
+  const response = await api.get(`/plugins/${pluginId}/settings`);
+  return response.data;
+}
+
+export async function updatePluginSettings(
+  pluginId: string,
+  values: Record<string, unknown>
+): Promise<PluginSettingsResponse> {
+  const response = await api.put(`/plugins/${pluginId}/settings`, { values });
   return response.data;
 }
 

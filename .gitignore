@@ -247,6 +247,7 @@ test_img
 lnauto.db
 frontend/src/plugins
 backend/plugins/RanobeDB/data
+backend/plugins/MCPServer
 TODOs.md
 docker_commands.md
 docker-push.sh
@@ -258,3 +259,9 @@ plugin_toolkit
 new_frontend_template_mockup/
 docker/test
 Context/
+DESIGN_INSPOs.md
+backend/plugins/Reviews
+
+# Staging area for the ln-manager-plugins repo. Holds copies of plugin sources that are
+# deliberately gitignored above, so without this a `git add -A` would commit them here.
+temp_repo_folder/

@@ -12,11 +12,14 @@ export const queryKeys = {
 
   // Plugins / indexers / download clients (settings slice)
   plugins: ["plugins"] as const,
+  pluginSettings: (id: string) => ["plugins", id, "settings"] as const,
   pluginIndexerOptions: ["pluginIndexerOptions"] as const,
   pluginDownloadClientOptions: ["pluginDownloadClientOptions"] as const,
   indexers: ["indexers"] as const,
   downloadClients: ["downloadClients"] as const,
   pluginCapabilities: ["pluginCapabilities"] as const,
+  pluginRepositories: ["pluginRepositories"] as const,
+  pluginCatalog: ["pluginCatalog"] as const,
 
   // System slice
   notifications: ["notifications"] as const,

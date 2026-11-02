@@ -13,6 +13,11 @@ import {
 import { queryKeys } from "../api/queryKeys";
 import ItemCard from "../components/ItemCard/ItemCard";
 import SeriesInfo from "../components/SeriesInfo";
+import ExtensionPoint from "../components/ExtensionPoint/ExtensionPoint";
+import {
+  extensionPoints,
+  type SeriesSectionContext,
+} from "../extensions/extensionPoints";
 import { type CardItem } from "../types/CardItems";
 
 function SeriesPage() {
@@ -129,6 +134,12 @@ function SeriesPage() {
 
   const isRefreshing = addSeriesMutation.isPending;
 
+  // Stable identity so plugin sections don't remount on every render.
+  const extensionContext = useMemo<SeriesSectionContext | null>(
+    () => (seriesGroup && series ? { series, seriesGroup } : null),
+    [series, seriesGroup]
+  );
+
   if (!seriesGroup) {
     return <Text>Loading series...</Text>;
   }
@@ -172,6 +183,13 @@ function SeriesPage() {
 
         <Tabs.Panel value={series.id}>
           <SeriesInfo series={series} />
+
+          {extensionContext && (
+            <ExtensionPoint
+              id={extensionPoints.seriesDetailInline}
+              context={extensionContext}
+            />
+          )}
 
           {books.length === 0 && chapters.length === 0 && (
             <Text mt="md">No books or chapters available.</Text>
@@ -260,6 +278,13 @@ function SeriesPage() {
           </Tabs>
         </Tabs.Panel>
       </Tabs>
+
+      {extensionContext && (
+        <ExtensionPoint
+          id={extensionPoints.seriesDetailBottom}
+          context={extensionContext}
+        />
+      )}
     </>
   );
 }

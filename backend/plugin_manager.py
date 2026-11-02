@@ -4,15 +4,37 @@ import importlib
 import shutil
 import sys
 import logging
+import uuid
 from pathlib import Path
 from typing import Dict, Type, Any
 
 from backend.core.plugins.base import BasePlugin
+from backend.core.plugins.settings import defaults_for
 from backend.core.constants import BUNDLED_PLUGIN_DIR, USER_PLUGIN_DIR, PLUGIN_DIRS
 from backend.core.logging_config import get_logger
 
 
 logger = get_logger(__name__)
+
+
+def normalise_uid(raw: Any, *, plugin_name: str = "<unknown>") -> str | None:
+    """Return a manifest `uid` in canonical UUID form, or None if absent/unusable.
+
+    `uuid.UUID` accepts several spellings of the same value - with and without dashes,
+    braced, upper or lower case - so comparing the raw strings would treat one plugin as
+    two. Since `uid` is what identifies a plugin across repositories and reinstalls,
+    every read goes through here so the stored and compared form is always the same.
+
+    A malformed uid is dropped rather than raised on: a bad manifest should not stop the
+    rest of the plugins from loading. The packager rejects them at build time.
+    """
+    if raw is None:
+        return None
+    try:
+        return str(uuid.UUID(str(raw)))
+    except (ValueError, AttributeError, TypeError):
+        logger.warning(f"Plugin '{plugin_name}' has a malformed uid {raw!r}; ignoring it")
+        return None
 
 
 class PluginManager:
@@ -43,7 +65,7 @@ class PluginManager:
     def get_status(self, name: str, enabled: bool) -> tuple[str, str | None]:
         """Return (status, error) for a plugin given its DB `enabled` flag.
 
-        status is one of: disabled, safe_mode, loaded, failed, missing.
+        status is one of: disabled, safe_mode, loaded, failed, pending_restart, missing.
         The safe_mode case is decided by the caller (which knows the global flag) and passed
         in via `enabled=False`-style handling; here safe_mode is not inferred.
         """
@@ -53,6 +75,12 @@ class PluginManager:
             return "loaded", None
         if name in self.failed_plugins:
             return "failed", self.failed_plugins[name]
+        # The files are on disk but this process never loaded them: a plugin installed
+        # since boot, waiting for the restart the UI asks for. Distinct from "missing",
+        # which means the row has outlived its files.
+        for plugin_dir in PLUGIN_DIRS:
+            if (plugin_dir / name / "manifest.yaml").exists():
+                return "pending_restart", None
         return "missing", None
 
     def install_dependencies(self, dependencies: list[str]):
@@ -89,10 +117,14 @@ class PluginManager:
         logger.warning(f"Plugin folder '{folder_name}' not found in any plugin directory")
         return None
     
-    def load_plugin_from_manifest(self, folder_name: str, manifest: dict):
+    def load_plugin_from_manifest(self, folder_name: str, manifest: dict, config: dict | None = None):
         """Load and instantiate a plugin from its manifest.
-        
+
         The plugin instance is kept running for the lifetime of the application.
+
+        Args:
+            config: stored plugin settings, applied before start() so the plugin can use
+                them during startup.
         """
         plugin_name = manifest.get("name", folder_name)
         logger.info(f"Loading plugin: {plugin_name}")
@@ -132,8 +164,11 @@ class PluginManager:
             module = importlib.import_module(module_path)
             cls: Type[BasePlugin] = getattr(module, class_name)
             
-            # Instantiate the plugin
+            # Instantiate the plugin, then hand it its stored settings before start().
+            # Assigning rather than passing a kwarg keeps plugins whose __init__ takes
+            # no **kwargs working.
             instance = cls()
+            instance.config = self._config_with_defaults(instance, config)
             self.plugins[plugin_name] = instance
             self.failed_plugins.pop(plugin_name, None)
             logger.info(f"Plugin '{plugin_name}' instantiated successfully")
@@ -190,6 +225,37 @@ class PluginManager:
             self.unload_plugin(name)
         logger.info("All plugins shut down")
     
+    @staticmethod
+    def _config_with_defaults(plugin: BasePlugin, config: dict | None) -> dict:
+        """Stored settings layered over the schema's defaults, so a plugin can read
+        self.config without re-implementing its own fallbacks."""
+        try:
+            schema = plugin.get_settings_schema() or {}
+        except Exception as e:
+            logger.error(
+                f"Plugin '{plugin.name}' failed to report its settings schema: {e}",
+                exc_info=True,
+            )
+            schema = {}
+        return {**defaults_for(schema), **(config or {})}
+
+    def apply_plugin_config(self, name: str, config: dict) -> None:
+        """Push saved settings onto a running plugin and notify it.
+
+        No-op when the plugin isn't loaded (disabled, failed, or safe mode) — the values
+        are still persisted and will be applied the next time it loads.
+        """
+        plugin = self.plugins.get(name)
+        if plugin is None:
+            logger.debug(f"Settings saved for '{name}', which is not currently loaded")
+            return
+        plugin.config = self._config_with_defaults(plugin, config)
+        try:
+            plugin.on_settings_changed(plugin.config)
+        except Exception as e:
+            logger.error(f"Plugin '{name}' failed to apply new settings: {e}", exc_info=True)
+            raise
+
     def get_plugin(self, name: str) -> BasePlugin | None:
         """Get a running plugin instance by name.
         

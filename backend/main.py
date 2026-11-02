@@ -38,7 +38,7 @@ from backend.core.database.models import (
     Parser,
 )
 from backend.core.notifications import notification_manager
-from backend.plugin_manager import PluginManager, plugin_manager
+from backend.plugin_manager import PluginManager, plugin_manager, normalise_uid
 from backend.core.constants import PLUGIN_DIRS, STATIC_DIR, SAFE_MODE
 from backend.core.exceptions import (
     ResourceNotFoundError,
@@ -54,7 +54,7 @@ from backend.core.scheduler import (
 )
 
 
-from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients
+from .api.v1 import core, metadata, system, plugins, indexers, parsers, download_clients, repositories
 
 # Initialize logging at the very start
 setup_logging(
@@ -72,6 +72,27 @@ scheduler.add_job(
     minutes=UPDATE_SERIES_INTERVAL_MINUTES,
 )
 scheduler.add_job(check_release_day, "cron", hour=0, minute=0)
+
+
+# Strong references to background startup work. asyncio only holds a weak reference to a
+# running task, so without this a task can be garbage collected mid-flight.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _spawn_background(coro, description: str) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    logger.debug(f"Started background task: {description}")
+
+
+async def _hydrate_repositories() -> None:
+    """Give repositories with no cached catalog one fetch, off the startup path."""
+    try:
+        with Session(engine) as session:
+            await repositories.hydrate_repository_catalogs(session)
+    except Exception as e:
+        logger.error(f"Plugin repository hydration failed: {e}", exc_info=True)
 
 
 @asynccontextmanager
@@ -98,6 +119,7 @@ async def lifespan(app: FastAPI):
 
                 manifest = yaml.safe_load(manifest_file.open())
                 name = manifest.get("name")
+                uid = normalise_uid(manifest.get("uid"), plugin_name=name or str(folder))
                 version = manifest.get("version")
                 description = manifest.get("description", "")
                 author = manifest.get("author", "")
@@ -105,12 +127,23 @@ async def lifespan(app: FastAPI):
 
                 logger.debug(f"Found plugin manifest: {name} v{version}")
 
-                db_plugin = session.exec(
-                    select(Plugin).where(Plugin.name == name)
-                ).first()
+                # Match on uid first - it is the plugin's stable identity and survives a
+                # rename. Fall back to name so rows written before uid existed are
+                # adopted and backfilled rather than duplicated; without that fallback
+                # every already-installed plugin would gain a second row on upgrade.
+                db_plugin = None
+                if uid:
+                    db_plugin = session.exec(
+                        select(Plugin).where(Plugin.uid == uid)
+                    ).first()
+                if db_plugin is None:
+                    db_plugin = session.exec(
+                        select(Plugin).where(Plugin.name == name)
+                    ).first()
 
                 if not db_plugin:
                     db_plugin = Plugin(
+                        uid=uid,
                         name=name,
                         version=version,
                         author=author,
@@ -120,6 +153,16 @@ async def lifespan(app: FastAPI):
                     session.add(db_plugin)
                     logger.info(f"Added new plugin to database: {name} v{version}")
                 else:
+                    if uid and db_plugin.uid != uid:
+                        logger.info(
+                            f"Backfilling uid for plugin '{name}': {uid}"
+                            if db_plugin.uid is None
+                            else f"Plugin '{name}' uid changed: {db_plugin.uid} -> {uid}"
+                        )
+                        db_plugin.uid = uid
+                    # A manifest without a uid is tolerated so plugins predating the
+                    # field keep loading; the packager rejects new ones that omit it.
+                    db_plugin.name = name
                     db_plugin.version = version
                     db_plugin.description = description
                     db_plugin.author = author
@@ -159,7 +202,9 @@ async def lifespan(app: FastAPI):
                 logger.info(f"Loading plugin: {plugin.name}")
                 manifest = yaml.safe_load(manifest_file.open())
                 try:
-                    plugin_instance = plugin_manager.load_plugin_from_manifest(plugin.name, manifest)
+                    plugin_instance = plugin_manager.load_plugin_from_manifest(
+                        plugin.name, manifest, config=plugin.config
+                    )
                 except Exception as e:
                     logger.error(f"Failed to load plugin '{plugin.name}': {e}", exc_info=True)
                     plugin_manager.record_load_failure(plugin.name, str(e))
@@ -391,12 +436,26 @@ async def lifespan(app: FastAPI):
                     )
                 )
 
+        # Fetch the index for any repository that has never been refreshed - the seeded
+        # default, on a first boot. Backgrounded rather than awaited: a delegated index
+        # is one request per plugin, so an unreachable repository could hold startup up
+        # for minutes, and nothing at boot reads the catalog.
+        _spawn_background(_hydrate_repositories(), "plugin repository hydration")
+
         logger.info("Application startup complete")
 
         yield
 
         # Perform shutdown tasks
         logger.info("Application shutting down...")
+
+        # A repository fetch can still be in flight, with its own session open. Cancel
+        # it rather than letting it outlive the app and log against a closing database.
+        for task in list(_background_tasks):
+            task.cancel()
+        if _background_tasks:
+            await asyncio.gather(*_background_tasks, return_exceptions=True)
+
         scheduler.shutdown()
         logger.info("Scheduler stopped")
 
@@ -574,6 +633,7 @@ app.include_router(plugins.router, prefix="/api/v1", tags=["plugins"])
 app.include_router(indexers.router, prefix="/api/v1", tags=["indexers"])
 app.include_router(parsers.router, prefix="/api/v1", tags=["parsers"])
 app.include_router(download_clients.router, prefix="/api/v1", tags=["download_clients"])
+app.include_router(repositories.router, prefix="/api/v1", tags=["plugin_repositories"])
 
 # Plugin routers and root-level routes are registered inside the lifespan
 # (see _register_plugin_http) because plugins are only loaded there.

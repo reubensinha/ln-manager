@@ -2,6 +2,7 @@ import { AppShell, Burger, Group } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { NavbarNested } from "../Navbar/NavbarNested";
 import SpotlightSearch from "../SpotlightSearch";
+import { usePlugins } from "../../api/hooks/plugins";
 // import SearchBar from "../SearchBar";
 
 interface LayoutProps {
@@ -10,6 +11,10 @@ interface LayoutProps {
 
 function Layout({ children }: LayoutProps) {
   const [opened, { toggle }] = useDisclosure();
+
+  // Warm the plugin list here: extension points render nothing until it resolves, so
+  // fetching it on first paint stops plugin sections popping in later.
+  usePlugins();
 
   return (
     <AppShell

@@ -149,10 +149,67 @@ export type PluginResponse = {
   author: string;
   description?: string;
   enabled: boolean;
-  status?: string; // loaded | failed | missing | disabled | safe_mode
+  status?: string; // loaded | failed | pending_restart | missing | disabled | safe_mode
   error?: string | null;
+  has_settings?: boolean;
+  /** Stable identity from the plugin's manifest; matches catalog entries. */
+  uid?: string | null;
+  /** Repository this plugin was installed from, or null for bundled/manual. */
+  source_repo_id?: string | null;
+  /** Shipped with the image, so it cannot be uninstalled - only disabled. */
+  bundled?: boolean;
   routes?: PluginRoute[];
   navbarLinks?: PluginNavBarLink[];
+};
+
+export type PluginRepositoryResponse = {
+  id: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+  created_at: string;
+  last_refreshed_at?: string | null;
+  last_error?: string | null;
+  plugin_count: number;
+};
+
+/** One installable release, as offered by one repository. */
+export type CatalogVersion = {
+  version: string;
+  url: string;
+  sha256: string;
+  min_app_version?: string | null;
+  changelog?: string | null;
+  repo_id?: string | null;
+  repo_name?: string | null;
+};
+
+/**
+ * Repositories offering different files under the same version number. Both offers
+ * also appear in `versions`, so either can still be installed by naming its repository.
+ */
+export type CatalogConflict = {
+  version: string;
+  repos: { id: string | null; name: string | null; sha256: string }[];
+};
+
+export type CatalogEntryResponse = {
+  uid: string;
+  name: string;
+  author?: string | null;
+  description?: string | null;
+  versions: CatalogVersion[];
+  repos: { id: string; name: string }[];
+  conflicts: CatalogConflict[];
+  installed: boolean;
+  installed_version?: string | null;
+};
+
+export type PluginCatalogResponse = {
+  plugins: CatalogEntryResponse[];
+  repository_count: number;
+  /** Repositories whose last refresh failed; their cached catalog is still served. */
+  stale: { id: string; name: string; error: string | null }[];
 };
 
 export type MetadataSource = {
@@ -173,6 +230,25 @@ export type PluginCapability = {
   description?: string;
   config_schema?: Record<string, unknown>;
 };
+
+/** One field in a plugin's settings schema (see BasePlugin.get_settings_schema). */
+export type PluginSettingField = {
+  type?: "string" | "number" | "boolean";
+  label?: string;
+  description?: string;
+  required?: boolean;
+  secret?: boolean;
+  enum?: (string | number)[];
+  default?: unknown;
+};
+
+export type PluginSettingsResponse = {
+  settings_schema: Record<string, PluginSettingField>;
+  values: Record<string, unknown>;
+};
+
+/** Sent back for a secret the user didn't change; the backend keeps the stored value. */
+export const SECRET_SENTINEL = "__unchanged__";
 
 
 export type Notification = {

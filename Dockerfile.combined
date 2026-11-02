@@ -1,19 +1,23 @@
 # Dockerfile.combined
-# 1) Build frontend
-# 1) Build frontend (kept for optional caching, but runtime will build too)
-FROM node:20-alpine AS frontend-build
+# 1) Build the frontend. The runtime rebuilds it too (user plugins mount into
+#    src/plugins and Vite's manifest glob is build-time), but this stage is what
+#    produces the audited node_modules and the fallback bundle. Deliberately a Debian
+#    (glibc) image, not alpine: node_modules is copied into the python:3.12-slim app
+#    stage, and musl-linked native binaries (rollup, esbuild) would not run there.
+FROM node:24-slim AS frontend-build
 WORKDIR /frontend
 
-COPY frontend/package*.json ./
-# Use --legacy-peer-deps and npm install so the build doesn't fail when package-lock
-# and package.json are slightly out of sync in this repo. This produces reproducible
-# installs but will respect package.json semver ranges.
-RUN npm install --legacy-peer-deps --silent && npm cache clean --force
+# Install from the committed lockfile so the image gets exactly the versions that
+# were locked and audited - not whatever the semver ranges resolve to today.
+COPY frontend/package.json frontend/yarn.lock ./
+RUN yarn install --frozen-lockfile && yarn cache clean
+
 COPY frontend/ .
 ARG VERSION
 ARG BASE_PATH=""
-# Build; Vite writes to 'dist' by default (this is optional - runtime build will also run)
-RUN env PUBLIC_VERSION=${VERSION:-} PUBLIC_API_URL=${BASE_PATH:-} BASE_PATH=${BASE_PATH:-} npm run build || true
+# No "|| true" here: a frontend that doesn't compile should fail the build rather
+# than silently ship an image with no bundle.
+RUN env PUBLIC_VERSION=${VERSION:-} PUBLIC_API_URL=${BASE_PATH:-} BASE_PATH=${BASE_PATH:-} yarn build
 
 # 2) App image
 FROM python:3.12-slim AS app
@@ -40,11 +44,23 @@ COPY backend/ /app/backend
 # is built on launch.
 COPY frontend/ /app/frontend
 
-# (Optional) include a pre-built dist from the build stage as a fallback/cache.
-COPY --from=frontend-build /frontend/dist /app/backend/static
+# Ship the prebuilt bundle to where the app actually serves from
+# (core/constants.py sets STATIC_DIR = frontend/dist), plus a pristine copy the
+# entrypoint can fall back to when a startup rebuild fails.
+COPY --from=frontend-build /frontend/dist /app/frontend/dist
+COPY --from=frontend-build /frontend/dist /app/frontend/dist.baked
 
-# Install Node.js runtime in the final image so the entrypoint can run npm build
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Reuse the dependency tree installed from the lockfile above, so the startup
+# rebuild needs no registry access and cannot drift between boots.
+COPY --from=frontend-build /frontend/node_modules /app/frontend/node_modules
+
+# The frontend plugin volume mounts here; create it so the manifest glob always
+# has a directory to look at even when nothing is mounted.
+RUN mkdir -p /app/frontend/src/plugins
+
+# Install Node.js runtime in the final image so the entrypoint can rebuild the
+# frontend when plugin components are mounted in.
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get update \
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
