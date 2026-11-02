@@ -14,12 +14,23 @@ echo "[entrypoint] Starting container entrypoint"
 # the bundle shipped with the image rather than crash-looping with no frontend at all.
 if [ -d /app/frontend ]; then
   cd /app/frontend
-  echo "[entrypoint] Building frontend"
-  if ! ./node_modules/.bin/vite build; then
+  # Checked before building rather than after failing: the container may be given any uid
+  # (compose `user:`, rootless Docker), and an unwritable tree produces a long vite stack
+  # trace that reads like a code fault rather than a permissions one.
+  if [ ! -w dist ] || [ ! -w node_modules/.vite-temp ]; then
+    echo "[entrypoint] WARNING: /app/frontend is not writable by uid $(id -u):$(id -g) - skipping the rebuild"
+    echo "[entrypoint] WARNING: serving the bundle shipped with the image; plugin UI components will be missing"
+  elif ! ./node_modules/.bin/vite build; then
     echo "[entrypoint] WARNING: frontend build failed - serving the bundle shipped with the image"
     echo "[entrypoint] WARNING: plugin UI components will be missing until the build succeeds"
-    rm -rf dist
-    cp -r dist.baked dist
+    # Guarded because of `set -e` above: if dist cannot be replaced, the fallback must not
+    # abort the entrypoint. Exiting here would turn a cosmetic build failure into a restart
+    # loop serving nothing, when the bundle already in dist is strictly better than that.
+    if rm -rf dist 2>/dev/null; then
+      cp -r dist.baked dist || true
+    else
+      echo "[entrypoint] WARNING: dist is not writable - leaving the image's bundle in place"
+    fi
   fi
 else
   echo "[entrypoint] No frontend source found at /app/frontend, skipping build"
